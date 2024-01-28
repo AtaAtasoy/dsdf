@@ -11,9 +11,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
 
-    dataset_path = Path("exercise_3/data/sdf_sofas")  # path to sdf data for ShapeNet sofa class - make sure you've downloaded the processed data at appropriate path
-
-    def __init__(self, num_sample_points, split):
+    def __init__(self, category, num_sample_points, split):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -22,7 +20,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
         assert split in ['train', 'val', 'overfit']
 
         self.num_sample_points = num_sample_points
-        self.items = Path(f"exercise_3/data/splits/sofas/{split}.txt").read_text().splitlines()  # keep track of shape identifiers based on split
+        self.dataset_path = Path(f'../../data/{category}') # path to the sdf data for ShapeNetSem
+        self.items = Path(f"exercise_3/data/splits/{category}/{split}.txt").read_text().splitlines()  # keep track of shape identifiers based on split
 
     def __getitem__(self, index):
         """
