@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import trimesh
+import os
 
 from exercise_3.util.misc import remove_nans
 
@@ -20,8 +21,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
         assert split in ['train', 'val', 'overfit']
 
         self.num_sample_points = num_sample_points
-        self.dataset_path = Path(f'../../data/{category}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f"exercise_3/data/splits/{category}/{split}.txt").read_text().splitlines()  # keep track of shape identifiers based on split
+        self.dataset_path = Path(f'/cluster/51/ataatasoy/project/data/{category}') # path to the sdf data for ShapeNetSem
+        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{category}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
 
     def __getitem__(self, index):
         """
@@ -38,7 +39,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         item = self.items[index]
 
         # get path to sdf data
-        sdf_samples_path = ShapeImplicit.dataset_path / item / "sdf.npz"
+        sdf_samples_path = Path(f'{self.dataset_path}/{item}/sdf.npz')
 
         # read points and their sdf values from disk
         # TODO: Implement the method get_sdf_samples
@@ -81,6 +82,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :return: a pytorch float32 torch tensor of shape (num_sample_points, 4) with each row being [x, y, z, sdf_value at xyz]
         """
         npz = np.load(path_to_sdf)
+        npz = remove_nans(npz)
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
 
