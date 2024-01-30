@@ -6,6 +6,8 @@ import os
 
 from exercise_3.util.misc import remove_nans
 
+from positional_encoding import positional_encoding
+
 
 class ShapeImplicit(torch.utils.data.Dataset):
     """
@@ -14,7 +16,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     
     dataset_path = '/cluster/51/ataatasoy/project/data/'
 
-    def __init__(self, shape_class, num_sample_points, split):
+    def __init__(self, shape_class, num_sample_points, split, num_encoding_functions=6):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -25,6 +27,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
         self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 
     def __getitem__(self, index):
         """
@@ -48,6 +51,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
+        encoded_points = self.pe_encoder(points)
         sdf = sdf_samples[:, 3:]
 
         # truncate sdf values
@@ -56,7 +60,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return {
             "name": item,       # identifier of the shape
             "indices": index,   # index parameter
-            "points": points,   # points, a tensor with shape num_sample_points x 3
+            "points": encoded_points,   # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
             "sdf": sdf_clamped  # sdf values, a tensor with shape num_sample_points x 1
         }
 

@@ -4,7 +4,7 @@ import torch
 
 class DeepSDFDecoder(nn.Module):
 
-    def __init__(self, latent_size):
+    def __init__(self, latent_size, num_encoding_functions):
         """
         :param latent_size: latent code vector length
         """
@@ -12,7 +12,7 @@ class DeepSDFDecoder(nn.Module):
         dropout_prob = 0.2
 
         # TODO: Define model
-        self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size + 3, 512))
+        self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size + 3 + 3 * 2 * num_encoding_functions, 512))
         self.relu0 = nn.ReLU()
         self.drop0 = nn.Dropout(dropout_prob)
 
@@ -28,7 +28,7 @@ class DeepSDFDecoder(nn.Module):
         self.relu3 = nn.ReLU()
         self.drop3 = nn.Dropout(dropout_prob)
 
-        self.lin4 = torch.nn.utils.weight_norm(nn.Linear(512, 512 - (latent_size + 3)))
+        self.lin4 = torch.nn.utils.weight_norm(nn.Linear(512, 512 - (latent_size + 3 + 3 * 2 * num_encoding_functions)))
         self.relu4 = nn.ReLU()
         self.drop4 = nn.Dropout(dropout_prob)
 
