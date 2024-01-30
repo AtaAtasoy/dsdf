@@ -11,7 +11,7 @@ generalization_config = {
     'learning_rate_model': 0.0005,
     'learning_rate_code': 0.001,
     'lambda_code_regularization': 0.0001,
-    'max_epochs': 2000,  # not necessary to run for 2000 epochs if you're short on time, at 500 epochs you should start to see reasonable results
+    'max_epochs': 200,  
     'print_every_n': 50,
     'visualize_every_n': 5000,
 }
