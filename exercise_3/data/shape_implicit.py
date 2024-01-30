@@ -11,8 +11,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
     """
     Dataset for loading deep sdf training samples
     """
+    
+    dataset_path = '/cluster/51/ataatasoy/project/data/'
 
-    def __init__(self, category, num_sample_points, split):
+    def __init__(self, shape_class, num_sample_points, split):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -21,25 +23,25 @@ class ShapeImplicit(torch.utils.data.Dataset):
         assert split in ['train', 'val', 'overfit']
 
         self.num_sample_points = num_sample_points
-        self.dataset_path = Path(f'/cluster/51/ataatasoy/project/data/{category}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{category}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
+        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
 
     def __getitem__(self, index):
         """
         PyTorch requires you to provide a getitem implementation for your dataset.
         :param index: index of the dataset sample that will be returned
         :return: a dictionary of sdf data corresponding to the shape. In particular, this dictionary has keys
-                 "name", shape_identifier of the shape
-                 "indices": index parameter
-                 "points": a num_sample_points x 3  pytorch float32 tensor containing sampled point coordinates
-                 "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
+             "name", shape_identifier of the shape
+             "indices": index parameter
+             "points": a num_sample_points x 3  pytorch float32 tensor containing sampled point coordinates
+             "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
 
         # get shape_id at index
         item = self.items[index]
 
         # get path to sdf data
-        sdf_samples_path = Path(f'{self.dataset_path}/{item}/sdf.npz')
+        sdf_samples_path = f'{self.dataset_path}/{item}/sdf.npz'
 
         # read points and their sdf values from disk
         # TODO: Implement the method get_sdf_samples
@@ -81,8 +83,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param path_to_sdf: path to sdf file
         :return: a pytorch float32 torch tensor of shape (num_sample_points, 4) with each row being [x, y, z, sdf_value at xyz]
         """
+        print(f'Loading {path_to_sdf}')
         npz = np.load(path_to_sdf)
-        npz = remove_nans(npz)
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
 
@@ -106,22 +108,23 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return samples
 
     @staticmethod
-    def get_mesh(shape_id):
+    def get_mesh(shape_id, shape_class):
         """
         Utility method for loading a mesh from disk given shape identifier
         :param shape_id: shape identifier for ShapeNet object
         :return: trimesh object representing the mesh
         """
-        return trimesh.load(ShapeImplicit.dataset_path / shape_id / "mesh.obj", force='mesh')
+        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh_simplified.obj'
+        return trimesh.load(mesh_path, force='mesh')
 
     @staticmethod
-    def get_all_sdf_samples(shape_id):
+    def get_all_sdf_samples(shape_id, shape_class):
         """
         Utility method for loading all points and their sdf values from disk
         :param shape_id: shape identifier for ShapeNet object
         :return: two torch float32 tensors, a Nx3 tensor containing point coordinates, and Nx1 tensor containing their sdf values
         """
-        npz = np.load(ShapeImplicit.dataset_path / shape_id / "sdf.npz")
+        npz = np.load(ShapeImplicit.dataset_path / shape_class / shape_id / "sdf.npz")
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"]))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"]))
 
