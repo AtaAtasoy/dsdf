@@ -1,6 +1,4 @@
 from exercise_3.training import train_deepsdf
-from exercise_3.model.deepsdf import DeepSDFDecoder
-from exercise_3.data.shape_implicit import ShapeImplicit
 from exercise_3.util.model import summarize_model
 from exercise_3.util.visualization import visualize_mesh, visualize_pointcloud
 import argparse
