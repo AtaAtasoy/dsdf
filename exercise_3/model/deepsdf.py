@@ -4,7 +4,7 @@ import torch
 
 class DeepSDFDecoder(nn.Module):
 
-    def __init__(self, latent_size, num_encoding_functions):
+    def __init__(self, latent_size, num_encoding_functions=6):
         """
         :param latent_size: latent code vector length
         """
