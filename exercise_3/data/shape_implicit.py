@@ -6,8 +6,7 @@ import os
 
 from exercise_3.util.misc import remove_nans
 
-from positional_encoding import positional_encoding
-
+from .positional_encoding import positional_encoding
 
 class ShapeImplicit(torch.utils.data.Dataset):
     """
