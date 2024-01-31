@@ -13,7 +13,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/cluster/51/ataatasoy/project/data/'
+    dataset_path = '../data/'
 
     def __init__(self, shape_class, num_sample_points, split, nonuniform_scale_augment=True, rotate_augment=False):
         """
@@ -25,7 +25,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
 
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        self.items = Path(f'exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         self.nonuniform_scale_augment = nonuniform_scale_augment
         self.rotate_augment = rotate_augment
 
@@ -91,7 +91,6 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param path_to_sdf: path to sdf file
         :return: a pytorch float32 torch tensor of shape (num_sample_points, 4) with each row being [x, y, z, sdf_value at xyz]
         """
-        print(f'Loading {path_to_sdf}')
         npz = np.load(path_to_sdf)
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
@@ -132,9 +131,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param shape_id: shape identifier for ShapeNet object
         :return: two torch float32 tensors, a Nx3 tensor containing point coordinates, and Nx1 tensor containing their sdf values
         """
-        npz = np.load(ShapeImplicit.dataset_path / shape_class / shape_id / "sdf.npz")
-        pos_tensor = remove_nans(torch.from_numpy(npz["pos"]))
-        neg_tensor = remove_nans(torch.from_numpy(npz["neg"]))
+        npz = np.load(f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/sdf.npz')
+        #npz = np.load(ShapeImplicit.dataset_path / shape_class / shape_id / "sdf.npz")
+        pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
+        neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
 
         samples = torch.cat([pos_tensor, neg_tensor], 0)
         points = samples[:, :3]

@@ -129,6 +129,7 @@ def main(config):
                    'visualize_every_n': visualize some training shapes every n iterations
                    'is_overfit': if the training is done on a small subset of data specified in exercise_2/split/overfit.txt,
                                  train and validation done on the same set, so error close to 0 means a good overfit. Useful for debugging.
+                    'shape_class: the class of the shape we are training for.
     """
 
     # declare device
@@ -140,7 +141,8 @@ def main(config):
         print('Using CPU')
 
     # create dataloaders
-    train_dataset = ShapeImplicit(config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit')
+    shape_class = config['shape_class']
+    train_dataset = ShapeImplicit(shape_class, config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit')
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,   # Datasets return data one sample at a time; Dataloaders use them and aggregate samples into batches
         batch_size=config['batch_size'],   # The size of batches is defined here
