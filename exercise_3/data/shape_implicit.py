@@ -13,7 +13,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '../data/'
+    dataset_path = '/cluster/51/ataatasoy/project/data/'
 
     def __init__(self, shape_class, num_sample_points, split, nonuniform_scale_augment=True, rotate_augment=False):
         """
@@ -25,7 +25,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
 
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         self.nonuniform_scale_augment = nonuniform_scale_augment
         self.rotate_augment = rotate_augment
 
