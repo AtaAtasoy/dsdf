@@ -12,8 +12,8 @@ from pytorch3d.transforms import RotateAxisAngle, Rotate, random_rotation, Scale
 """
 def scale_and_translate_to_unit_sphere(points):
     # Find the bounding box of the mesh
-    min_coords, max_coords = torch.min(points, 0), torch.max(points, 0)
-
+    min_coords, max_coords = torch.min(points, 0).values, torch.max(points, 0).values
+    
     # Calculate the center and size of the bounding box
     center = (min_coords + max_coords) / 2
     size = max(max_coords - min_coords)
@@ -36,7 +36,7 @@ def scale_and_translate_to_unit_sphere(points):
 """
 def apply_random_rotation(points):
     rot = Rotate(R=random_rotation())
-    rotated_pts = rot.transform.points(points) 
+    rotated_pts = rot.transform_points(points) 
     return rotated_pts 
 
 
@@ -52,7 +52,7 @@ def apply_random_rotation(points):
 """
 def apply_random_nonuniform_scale(points, scale_factor):
     scale = Scale(x=scale_factor * torch.rand(1), y=scale_factor * torch.rand(1), z=scale_factor * torch.rand(1))
-    scaled_pts = scale.transform.points(points) 
+    scaled_pts = scale.transform_points(points) 
     # Fit into the unit sphere
     scaled_pts = scale_and_translate_to_unit_sphere(scaled_pts)
     return scaled_pts 
