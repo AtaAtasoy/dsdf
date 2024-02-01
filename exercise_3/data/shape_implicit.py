@@ -5,7 +5,6 @@ import trimesh
 import os
 
 from exercise_3.util.misc import remove_nans
-from exercise_3.util.data_augmentations import apply_random_rotation, apply_random_nonuniform_scale 
 
 
 class ShapeImplicit(torch.utils.data.Dataset):
@@ -13,9 +12,9 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/cluster/51/ataatasoy/project/data/'
+    dataset_path = '../data/'
 
-    def __init__(self, shape_class, num_sample_points, split, nonuniform_scale_augment=True, rotate_augment=False):
+    def __init__(self, shape_class, num_sample_points, split):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -25,9 +24,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
 
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        self.nonuniform_scale_augment = nonuniform_scale_augment
-        self.rotate_augment = rotate_augment
+        self.items = Path(f'exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines() # keep track of shape identifiers based on split
 
     def __getitem__(self, index):
         """
@@ -51,11 +48,6 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
-        # Data augmentations if any
-        if self.rotate_augment:
-            points = apply_random_rotation(points=points)
-        if self.nonuniform_scale_augment:
-            points = apply_random_nonuniform_scale(points=points, scale_factor=3)
         sdf = sdf_samples[:, 3:]
 
         # truncate sdf values
