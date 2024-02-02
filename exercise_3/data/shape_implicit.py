@@ -5,6 +5,7 @@ import trimesh
 import os
 
 from exercise_3.util.misc import remove_nans
+#from exercise_3.util.augmentation import nonuniform_scale_augment, rotate_augment
 
 
 class ShapeImplicit(torch.utils.data.Dataset):
@@ -25,8 +26,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
         self.items = Path(f'exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        self.nonuniform_scale_augment = nonuniform_scale_augment
-        self.rotate_augment = rotate_augment
+        #self.nonuniform_scale_augment = nonuniform_scale_augment
+        #self.rotate_augment = rotate_augment
 
     def __getitem__(self, index):
         """
@@ -115,7 +116,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param shape_id: shape identifier for ShapeNet object
         :return: trimesh object representing the mesh
         """
-        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh_simplified.obj'
+        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh.glb'
         return trimesh.load(mesh_path, force='mesh')
 
     @staticmethod
