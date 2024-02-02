@@ -71,9 +71,7 @@ class DeepSDFVNDecoder(nn.Module):
         x = self.lin7(x)
         x = self.drop7(x)
 
-        print(x.shape)
         x = x.transpose(1, -1)
-        print(x.shape)
         x = self.lin8(x)
 
         return x
