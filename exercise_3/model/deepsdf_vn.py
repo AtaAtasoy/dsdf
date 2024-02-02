@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch
-from model.vn_layers import *
+from exercise_3.model.vn_layers import *
 
 
-class DeepSDFDecoder(nn.Module):
+class DeepSDFVNDecoder(nn.Module):
 
     def __init__(self, latent_size, num_encoding_functions=6):
         """
@@ -13,7 +13,7 @@ class DeepSDFDecoder(nn.Module):
         dropout_prob = 0.2
     
         # TODO: Define model
-        self.lin0 = VNLinearAndLeakyReLU((latent_size + 3 + 3 * 2 * num_encoding_functions)//3, 512//3, use_batchnorm='none', negative_slope=0.0)
+        self.lin0 = VNLinearAndLeakyReLU(latent_size + 3 + 3 * 2 * num_encoding_functions, 512//3, use_batchnorm='none', negative_slope=0.0)
         self.drop0 = nn.Dropout(dropout_prob)
 
         self.lin1 = VNLinearAndLeakyReLU(512//3, 512//3, use_batchnorm='none', negative_slope=0.0)
@@ -25,10 +25,10 @@ class DeepSDFDecoder(nn.Module):
         self.lin3 = VNLinearAndLeakyReLU(512//3, 512//3, use_batchnorm='none', negative_slope=0.0)
         self.drop3 = nn.Dropout(dropout_prob)
 
-        self.lin4 = VNLinearAndLeakyReLU(512//3, (512 - (latent_size + 3 + 3 * 2 * num_encoding_functions))//3, use_batchnorm='none', negative_slope=0.0)
+        self.lin4 = VNLinearAndLeakyReLU(512//3, (512 - (latent_size + 3 + 3 * 2 * num_encoding_functions)), use_batchnorm='none', negative_slope=0.0)
         self.drop4 = nn.Dropout(dropout_prob)
 
-        self.lin5 = VNLinearAndLeakyReLU(512//3, 512//3, use_batchnorm='none', negative_slope=0.0)
+        self.lin5 = VNLinearAndLeakyReLU(512, 512//3, use_batchnorm='none', negative_slope=0.0)
         self.drop5 = nn.Dropout(dropout_prob)
 
         self.lin6 = VNLinearAndLeakyReLU(512//3, 512//3, use_batchnorm='none', negative_slope=0.0)
@@ -37,15 +37,14 @@ class DeepSDFDecoder(nn.Module):
         self.lin7 = VNLinearAndLeakyReLU(512//3, 512//3, use_batchnorm='none', negative_slope=0.0)
         self.drop7 = nn.Dropout(dropout_prob)
 
-        self.lin8 = torch.nn.utils.weight_norm(nn.Linear(512, 1))
+        self.lin8 = torch.nn.utils.weight_norm(nn.Linear(512//3, 1))
 
     def forward(self, x_in):
         """
         :param x_in: B x (latent_size + 3) tensor
         :return: B x 1 tensor
         """
-        B, N, D = x_in.shape
-        print(B, N, D)
+        B, D, N = x_in.shape
         # TODO: implement forward pass
         x = self.lin0(x_in)
         x = self.drop0(x)
@@ -72,6 +71,9 @@ class DeepSDFDecoder(nn.Module):
         x = self.lin7(x)
         x = self.drop7(x)
 
+        print(x.shape)
+        x = x.transpose(1, -1)
+        print(x.shape)
         x = self.lin8(x)
 
         return x

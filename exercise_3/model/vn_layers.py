@@ -11,7 +11,7 @@ EPS = 1e-6
 
 class VNLinear(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(VNLinear, self).__init__()
+        super().__init__()
         # In DeepSDF, weight normed Linear layers are used.
         self.map_to_feat = torch.nn.utils.weight_norm(nn.Linear(in_channels, out_channels, bias=False))
     
@@ -25,7 +25,7 @@ class VNLinear(nn.Module):
 
 class VNLeakyReLU(nn.Module):
     def __init__(self, in_channels, share_nonlinearity=False, negative_slope=0.2):
-        super(VNLeakyReLU, self).__init__()
+        super().__init__()
          # In DeepSDF, weight normed Linear layers are used.
         if share_nonlinearity == True:
             self.map_to_dir = torch.nn.utils.weight_norm(nn.Linear(in_channels, 1, bias=False))
@@ -47,7 +47,7 @@ class VNLeakyReLU(nn.Module):
 
 class VNLinearLeakyReLU(nn.Module):
     def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, negative_slope=0.2):
-        super(VNLinearLeakyReLU, self).__init__()
+        super().__init__()
         self.dim = dim
         self.negative_slope = negative_slope
         
@@ -78,7 +78,7 @@ class VNLinearLeakyReLU(nn.Module):
 
 class VNLinearAndLeakyReLU(nn.Module):
     def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, use_batchnorm='norm', negative_slope=0.2):
-        super(VNLinearLeakyReLU, self).__init__()
+        super().__init__()
         self.dim = dim
         self.share_nonlinearity = share_nonlinearity
         self.use_batchnorm = use_batchnorm
