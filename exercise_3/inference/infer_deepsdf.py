@@ -7,10 +7,11 @@ from exercise_3.data.shape_implicit import ShapeImplicit
 from exercise_3.model.deepsdf import DeepSDFDecoder
 from exercise_3.util.misc import evaluate_model_on_grid
 
+from exercise_3.data.positional_encoding import positional_encoding
 
 class InferenceHandlerDeepSDF:
 
-    def __init__(self, latent_code_length, experiment, device):
+    def __init__(self, latent_code_length, experiment, device, num_encoding_functions=6):
         """
         :param latent_code_length: latent code length for the trained DeepSDF model
         :param experiment: path to experiment folder for the trained model; should contain "model_best.ckpt" and "latent_best.ckpt"
@@ -21,6 +22,8 @@ class InferenceHandlerDeepSDF:
         self.device = device
         self.truncation_distance = 0.01
         self.num_samples = 4096
+        self.num_encoding_functions = num_encoding_functions
+        self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 
     def get_model(self):
         """
@@ -40,7 +43,7 @@ class InferenceHandlerDeepSDF:
         latent_codes.to(self.device)
         return latent_codes
 
-    def reconstruct(self, points, sdf, num_optimization_iters):
+    def reconstruct(self, points, sdf, num_optimization_iters, use_positional_encoding=False):
         """
         Reconstructs by optimizing a latent code that best represents the input sdf observations
         :param points: all observed points for the shape which needs to be reconstructed
@@ -69,6 +72,8 @@ class InferenceHandlerDeepSDF:
             batch_indices = random.sample(range(points.shape[0]), self.num_samples)
 
             batch_points = points[batch_indices, :]
+            if use_positional_encoding:   
+                batch_points = self.pe_encoder(batch_points)
             batch_sdf = sdf[batch_indices, :]
 
             # move batch to device
