@@ -13,7 +13,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = 'dsdf/exercise_3/data'
+    dataset_path = '/cluster/51/ataatasoy/project/data'
 
     def __init__(self, shape_class, num_sample_points, split, experiment_type, num_encoding_functions=6):
         """
@@ -91,7 +91,6 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param path_to_sdf: path to sdf file
         :return: a pytorch float32 torch tensor of shape (num_sample_points, 4) with each row being [x, y, z, sdf_value at xyz]
         """
-        print(f'Loading {path_to_sdf}')
         npz = np.load(path_to_sdf)
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
