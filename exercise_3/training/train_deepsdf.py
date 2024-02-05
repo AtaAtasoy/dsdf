@@ -166,7 +166,7 @@ def main(config):
     #class_vectors.to(device)
 
     # Create folder for saving checkpoints
-    Path(f'exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
+    Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
     train(model, latent_vectors, train_dataloader, device, config)

@@ -27,7 +27,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
         self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        
+        self.items.remove('.DS_Store')
         if self.experiment_type == 'pe':
             self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 
