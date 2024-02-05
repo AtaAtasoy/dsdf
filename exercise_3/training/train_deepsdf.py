@@ -59,7 +59,7 @@ def train(model, latent_vectors, train_dataloader, device, config):
 
             # reshape points and sdf for forward pass
             if config['experiment_type'] == "pe":
-                points = batch['points'].reshape((num_points_per_batch, 3 + 3 * 2 * model.num_encoding_functions))
+                points = batch['points'].reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions']))
             else:
                 points = batch['points'].reshape((num_points_per_batch, 3))
             sdf = batch['sdf'].reshape((num_points_per_batch, 1))
@@ -93,8 +93,8 @@ def train(model, latent_vectors, train_dataloader, device, config):
 
                 # save best train model and latent codes
                 if train_loss < best_loss:
-                    torch.save(model.state_dict(), f'exercise_3/runs/{config["experiment_name"]}/model_best.ckpt')
-                    torch.save(latent_vectors.state_dict(), f'exercise_3/runs/{config["experiment_name"]}/latent_best.ckpt')
+                    torch.save(model.state_dict(), f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/model_best.ckpt')
+                    torch.save(latent_vectors.state_dict(), f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/latent_best.ckpt')
                     best_loss = train_loss
 
                 train_loss_running = 0.
@@ -106,7 +106,7 @@ def train(model, latent_vectors, train_dataloader, device, config):
                 latent_vectors_for_vis = latent_vectors(torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device))
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, latent_vectors_for_vis[latent_idx, :], device, 64, f'exercise_3/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                    evaluate_model_on_grid(model, latent_vectors_for_vis[latent_idx, :], device, 64, f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 
@@ -153,7 +153,7 @@ def main(config):
     )
     
     # Instantiate model
-    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"])
+    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'])
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
     #class_vectors = torch.nn.Embedding(2, config['class_embed_size'])
@@ -169,7 +169,7 @@ def main(config):
     #class_vectors.to(device)
 
     # Create folder for saving checkpoints
-    Path(f'/workspace/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
+    Path(f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
     train(model, latent_vectors, train_dataloader, device, config)

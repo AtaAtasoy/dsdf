@@ -13,8 +13,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/workspace/project/data'
-    project_path = '/workspace/project/dsdf/exercise_3'
+    dataset_path = '/home/atasoy/project/data'
+    project_path = '/home/atasoy/project/dsdf/exercise_3'
 
     def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=6):
         """
