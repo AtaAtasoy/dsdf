@@ -5,6 +5,7 @@ import trimesh
 import os
 
 from exercise_3.util.misc import remove_nans
+from exercise_3.util.data_augmentations import apply_random_rotation
 
 from .positional_encoding import positional_encoding
 
@@ -15,7 +16,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     
     dataset_path = '/cluster/51/ataatasoy/project/data/'
 
-    def __init__(self, shape_class, num_sample_points, split, num_encoding_functions=6):
+    def __init__(self, shape_class, num_sample_points, split, num_encoding_functions=6, rotate_augment=False):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -27,6 +28,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
         self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        self.rotate_augment = rotate_augment
 
     def __getitem__(self, index):
         """
@@ -50,6 +52,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
+        if self.rotate_augment:
+            points = apply_random_rotation(points=points)
         encoded_points = self.pe_encoder(points)
         sdf = sdf_samples[:, 3:]
 
