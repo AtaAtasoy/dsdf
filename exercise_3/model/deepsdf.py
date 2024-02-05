@@ -4,12 +4,13 @@ import torch
 
 class DeepSDFDecoder(nn.Module):
 
-    def __init__(self, latent_size, experiment_type, num_encoding_functions=6):
+    def __init__(self, latent_size, experiment_type=None, num_encoding_functions=6):
         """
         :param latent_size: latent code vector length
         """
         super().__init__()
         dropout_prob = 0.2
+        self.num_encoding_functions = num_encoding_functions
 
         # TODO: Define model
         if experiment_type == 'pe':

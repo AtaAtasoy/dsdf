@@ -13,9 +13,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/cluster/51/ataatasoy/project/data'
+    dataset_path = '/workspace/project/data'
+    project_path = '/workspace/project/dsdf/exercise_3'
 
-    def __init__(self, shape_class, num_sample_points, split, experiment_type, num_encoding_functions=6):
+    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=6):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -26,8 +27,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.experiment_type = experiment_type
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        self.items.remove('.DS_Store')
+        self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         if self.experiment_type == 'pe':
             self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 

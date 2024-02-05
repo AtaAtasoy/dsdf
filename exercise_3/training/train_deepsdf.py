@@ -58,7 +58,10 @@ def train(model, latent_vectors, train_dataloader, device, config):
             batch_latent_vectors = batch_latent_vectors.reshape((num_points_per_batch, config['latent_code_length']))
 
             # reshape points and sdf for forward pass
-            points = batch['points'].reshape((num_points_per_batch, 3))
+            if config['experiment_type'] == "pe":
+                points = batch['points'].reshape((num_points_per_batch, 3 + 3 * 2 * model.num_encoding_functions))
+            else:
+                points = batch['points'].reshape((num_points_per_batch, 3))
             sdf = batch['sdf'].reshape((num_points_per_batch, 1))
 
             # TODO: perform forward pass
@@ -103,7 +106,7 @@ def train(model, latent_vectors, train_dataloader, device, config):
                 latent_vectors_for_vis = latent_vectors(torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device))
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, latent_vectors_for_vis[latent_idx, :], device, 64, f'exercise_3/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj')
+                    evaluate_model_on_grid(model, latent_vectors_for_vis[latent_idx, :], device, 64, f'exercise_3/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 
@@ -166,7 +169,7 @@ def main(config):
     #class_vectors.to(device)
 
     # Create folder for saving checkpoints
-    Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
+    Path(f'/workspace/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
     train(model, latent_vectors, train_dataloader, device, config)
