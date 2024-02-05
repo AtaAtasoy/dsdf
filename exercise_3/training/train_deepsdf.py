@@ -143,7 +143,7 @@ def main(config):
         print('Using CPU')
 
     # create dataloaders
-    train_dataset = ShapeImplicit(config['shape_class'], config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit', config['experiment_type'])
+    train_dataset = ShapeImplicit(config['shape_class'], config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit', config['experiment_type'], config['num_encoding_functions'])
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,   # Datasets return data one sample at a time; Dataloaders use them and aggregate samples into batches
         batch_size=config['batch_size'],   # The size of batches is defined here

@@ -4,7 +4,7 @@ import torch
 
 class DeepSDFDecoder(nn.Module):
 
-    def __init__(self, latent_size, experiment_type=None, num_encoding_functions=None):
+    def __init__(self, latent_size, experiment_type='vanilla', num_encoding_functions=4):
         """
         :param latent_size: latent code vector length
         """
@@ -14,7 +14,7 @@ class DeepSDFDecoder(nn.Module):
 
         # TODO: Define model
         if experiment_type == 'pe':
-            self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size +  n3 + 3 * 2 *um_encoding_functions, 512))
+            self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size +  3 + 3 * 2 * num_encoding_functions, 512))
         else: 
             self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size + 3, 512))
 

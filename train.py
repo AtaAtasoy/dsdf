@@ -11,8 +11,6 @@ def main():
     parser.add_argument("--experiment_name", help="Specify a category from ['chair', 'picture_frame_painting', 'sofa', 'rug']", required=True)
     parser.add_argument("--experiment_type", help="Specify a category from ['vanilla', 'pe', 'vn']", required=True)
     parser.add_argument("--is_overfit", help="Specify the extent of the experiment ", required=True)
-
-    #bu extent ne e
                         
     args = parser.parse_args()
     shape_class = args.category
@@ -37,7 +35,7 @@ def main():
         'max_epochs': 500,  # not necessary to run for 2000 epochs if you're short on time, at 500 epochs you should start to see reasonable results
         'print_every_n': 50,
         'visualize_every_n': 5000,
-        'num_encoding_functions': 6
+        'num_encoding_functions': 4
     }
 
     train_deepsdf.main(generalization_config)

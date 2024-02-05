@@ -16,7 +16,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     dataset_path = '/home/atasoy/project/data'
     project_path = '/home/atasoy/project/dsdf/exercise_3'
 
-    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=6):
+    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
