@@ -2,18 +2,21 @@ from pathlib import Path
 import numpy as np
 import torch
 import trimesh
+import os
 
 from exercise_3.util.misc import remove_nans
 
+from .positional_encoding import positional_encoding
 
 class ShapeImplicit(torch.utils.data.Dataset):
     """
     Dataset for loading deep sdf training samples
     """
+    
+    dataset_path = '/home/atasoy/project/data'
+    project_path = '/home/atasoy/project/dsdf/exercise_3'
 
-    dataset_path = Path("exercise_3/data/sdf_sofas")  # path to sdf data for ShapeNet sofa class - make sure you've downloaded the processed data at appropriate path
-
-    def __init__(self, num_sample_points, split):
+    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -21,31 +24,38 @@ class ShapeImplicit(torch.utils.data.Dataset):
         super().__init__()
         assert split in ['train', 'val', 'overfit']
 
+        self.experiment_type = experiment_type
         self.num_sample_points = num_sample_points
-        self.items = Path(f"exercise_3/data/splits/sofas/{split}.txt").read_text().splitlines()  # keep track of shape identifiers based on split
+        self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
+        self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        if self.experiment_type == 'pe':
+            self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 
     def __getitem__(self, index):
         """
         PyTorch requires you to provide a getitem implementation for your dataset.
         :param index: index of the dataset sample that will be returned
         :return: a dictionary of sdf data corresponding to the shape. In particular, this dictionary has keys
-                 "name", shape_identifier of the shape
-                 "indices": index parameter
-                 "points": a num_sample_points x 3  pytorch float32 tensor containing sampled point coordinates
-                 "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
+             "name", shape_identifier of the shape
+             "indices": index parameter
+             "points": a num_sample_points x 3  pytorch float32 tensor containing sampled point coordinates
+             "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
 
         # get shape_id at index
         item = self.items[index]
 
         # get path to sdf data
-        sdf_samples_path = ShapeImplicit.dataset_path / item / "sdf.npz"
+        sdf_samples_path = f'{self.dataset_path}/{item}/sdf.npz'
 
         # read points and their sdf values from disk
         # TODO: Implement the method get_sdf_samples
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
+        if self.experiment_type == 'pe':
+            points = self.pe_encoder(points)
+
         sdf = sdf_samples[:, 3:]
 
         # truncate sdf values
@@ -54,7 +64,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return {
             "name": item,       # identifier of the shape
             "indices": index,   # index parameter
-            "points": points,   # points, a tensor with shape num_sample_points x 3
+            "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
             "sdf": sdf_clamped  # sdf values, a tensor with shape num_sample_points x 1
         }
 
@@ -105,22 +115,23 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return samples
 
     @staticmethod
-    def get_mesh(shape_id):
+    def get_mesh(shape_id, shape_class):
         """
         Utility method for loading a mesh from disk given shape identifier
         :param shape_id: shape identifier for ShapeNet object
         :return: trimesh object representing the mesh
         """
-        return trimesh.load(ShapeImplicit.dataset_path / shape_id / "mesh.obj", force='mesh')
+        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh.obj'
+        return trimesh.load(mesh_path, force='mesh')
 
     @staticmethod
-    def get_all_sdf_samples(shape_id):
+    def get_all_sdf_samples(shape_id, shape_class):
         """
         Utility method for loading all points and their sdf values from disk
         :param shape_id: shape identifier for ShapeNet object
         :return: two torch float32 tensors, a Nx3 tensor containing point coordinates, and Nx1 tensor containing their sdf values
         """
-        npz = np.load(ShapeImplicit.dataset_path / shape_id / "sdf.npz")
+        npz = np.load(ShapeImplicit.dataset_path / shape_class / shape_id / "sdf.npz")
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"]))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"]))
 
