@@ -148,9 +148,9 @@ def main(config):
         num_workers=0,   # Data is usually loaded in parallel by num_workers
         pin_memory=True  # This is an implementation detail to speed up data uploading to the GPU
     )
-
+    
     # Instantiate model
-    model = DeepSDFDecoder(config['latent_code_length'])
+    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"])
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
     #class_vectors = torch.nn.Embedding(2, config['class_embed_size'])
