@@ -6,8 +6,9 @@ from exercise_3.model.deepsdf import DeepSDFDecoder
 from exercise_3.data.shape_implicit import ShapeImplicit
 from exercise_3.util.misc import evaluate_model_on_grid
 
+# TODO: Execute the mapping from the latent code index to the class id
 
-def train(model, latent_vectors, train_dataloader, device, config):
+def train(model, latent_vectors, class_vectors, train_dataloader, device, config):
 
     # Declare loss and move to device
     # TODO: declare loss as `loss_criterion`
@@ -15,6 +16,7 @@ def train(model, latent_vectors, train_dataloader, device, config):
     loss_criterion.to(device)
 
     # declare optimizer
+    # Could try different optimizers for the model, latent, class vectors 
     optimizer = torch.optim.Adam([
         {
             # TODO: optimizer params and learning rate for model (lr provided in config)
@@ -25,7 +27,11 @@ def train(model, latent_vectors, train_dataloader, device, config):
             # TODO: optimizer params and learning rate for latent code (lr provided in config)
             'lr': config['learning_rate_code'],
             'params': latent_vectors.parameters(),
-        }
+        },
+        {
+            'lr': config['learning_rate_class_code'],
+            'params': class_vectors.parameters(),
+        },
     ])
 
     # declare learning rate scheduler
@@ -39,13 +45,15 @@ def train(model, latent_vectors, train_dataloader, device, config):
 
     # Keep track of best training loss for saving the model
     best_loss = float('inf')
-
+    
+    latent_index_to_class_index = {i: ShapeImplicit.object_id_to_class_idx[ShapeImplicit.items[i]] for i in range(len(ShapeImplicit.items))}
+    
     for epoch in range(config['max_epochs']):
 
         for batch_idx, batch in enumerate(train_dataloader):
             # Move batch to device
             ShapeImplicit.move_batch_to_device(batch, device)
-
+            
             # TODO: Zero out previously accumulated gradients
             optimizer.zero_grad()
 
@@ -64,8 +72,12 @@ def train(model, latent_vectors, train_dataloader, device, config):
                 points = batch['points'].reshape((num_points_per_batch, 3))
             sdf = batch['sdf'].reshape((num_points_per_batch, 1))
 
+            # get class codes corresponding to batch shapes
+            class_vectors = class_vectors(batch['class_name']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
+
+            
             # TODO: perform forward pass
-            predicted_sdf = model(torch.cat([batch_latent_vectors, points], dim=1))
+            predicted_sdf = model(torch.cat([batch_latent_vectors, points, class_vectors], dim=1))
             # TODO: truncate predicted sdf between -0.1 and 0.1
             predicted_sdf = torch.clamp(predicted_sdf, -0.1, 0.1)
 
@@ -73,9 +85,11 @@ def train(model, latent_vectors, train_dataloader, device, config):
             loss = loss_criterion(predicted_sdf, sdf)
 
             # regularize latent codes
-            code_regularization = torch.mean(torch.norm(batch_latent_vectors, dim=1)) * config['lambda_code_regularization']
+            latent_code_regularization = torch.mean(torch.norm(batch_latent_vectors, dim=1)) * config['lambda_code_regularization']
+            class_code_regularization = torch.mean(torch.norm(class_vectors, dim=1)) * config['lambda_code_regularization']
+            
             if epoch > 100:
-                loss = loss + code_regularization
+                loss = loss + latent_code_regularization + class_code_regularization
 
             # TODO: backward
             loss.backward()
@@ -93,20 +107,28 @@ def train(model, latent_vectors, train_dataloader, device, config):
 
                 # save best train model and latent codes
                 if train_loss < best_loss:
-                    torch.save(model.state_dict(), f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/model_best.ckpt')
-                    torch.save(latent_vectors.state_dict(), f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/latent_best.ckpt')
+                    torch.save(model.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/model_best.ckpt')
+                    torch.save(latent_vectors.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/latent_best.ckpt')
+                    torch.save(class_vectors.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/class_best.ckpt')
                     best_loss = train_loss
 
                 train_loss_running = 0.
 
+        
             # visualize first 5 training shape reconstructions from latent codes
             if iteration % config['visualize_every_n'] == (config['visualize_every_n'] - 1):
                 # Set model to eval
                 model.eval()
-                latent_vectors_for_vis = latent_vectors(torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device))
+                indices = torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device)
+                #TODO: get class indices corresponding for the first 5 shapes
+                class_indices = torch.LongTensor(latent_idx[indices]).to(device)
+                
+                latent_vectors_for_vis = latent_vectors(indices)
+                class_vectors_for_vis = class_vectors(class_indices)
+                
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, latent_vectors_for_vis[latent_idx, :], device, 64, f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                    evaluate_model_on_grid(model, class_vectors_for_vis[latent_idx: ], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 
@@ -132,6 +154,7 @@ def main(config):
                    'visualize_every_n': visualize some training shapes every n iterations
                    'is_overfit': if the training is done on a small subset of data specified in exercise_2/split/overfit.txt,
                                  train and validation done on the same set, so error close to 0 means a good overfit. Useful for debugging.
+                    'num_classes': number of classes in the multiclass dataset
     """
 
     # declare device
@@ -153,11 +176,14 @@ def main(config):
     )
     
     # Instantiate model
-    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'])
+    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'], config['class_embed_size'] if config["experiment_type"] == "multiclass" else 0)
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
-    #class_vectors = torch.nn.Embedding(2, config['class_embed_size'])
-
+    class_vectors = torch.nn.Embedding(len(config['number_of_classes']), config['class_embed_size'], max_norm=1.0)
+    
+    # {class_name: embedding}
+    class_name_to_embedding = {"bed": class_vectors[0], "sofa": class_vectors[1]}
+    
     # Load model if resuming from checkpoint
     if config['resume_ckpt'] is not None:
         model.load_state_dict(torch.load(config['resume_ckpt'] + "_model.ckpt", map_location='cpu'))
@@ -166,10 +192,10 @@ def main(config):
     # Move model to specified device
     model.to(device)
     latent_vectors.to(device)
-    #class_vectors.to(device)
+    class_vectors.to(device)
 
     # Create folder for saving checkpoints
-    Path(f'/home/atasoy/project/dsdf/exercise_3/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
+    Path(f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
-    train(model, latent_vectors, train_dataloader, device, config)
+    train(model, latent_vectors, class_vectors, class_name_to_embedding, train_dataloader, device, config)

@@ -3,18 +3,21 @@ import numpy as np
 import torch
 import trimesh
 import os
+import json
 
 from exercise_3.util.misc import remove_nans
 
 from .positional_encoding import positional_encoding
+
+#TODO: Create -> object_id_to_class.json
 
 class ShapeImplicit(torch.utils.data.Dataset):
     """
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/home/atasoy/project/data'
-    project_path = '/home/atasoy/project/dsdf/exercise_3'
+    dataset_path = '/workspace/project/data'
+    project_path = '/workspace/project/dsdf/exercise_3'
 
     def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4):
         """
@@ -30,6 +33,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         if self.experiment_type == 'pe':
             self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        self.object_index_to_class_idx = json.load(open(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/object_index_to_class.json'))
 
     def __getitem__(self, index):
         """
@@ -41,9 +45,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
              "points": a num_sample_points x 3  pytorch float32 tensor containing sampled point coordinates
              "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
-
         # get shape_id at index
         item = self.items[index]
+        
+        class_idx = self.object_id_to_class[item]
 
         # get path to sdf data
         sdf_samples_path = f'{self.dataset_path}/{item}/sdf.npz'
@@ -65,7 +70,8 @@ class ShapeImplicit(torch.utils.data.Dataset):
             "name": item,       # identifier of the shape
             "indices": index,   # index parameter
             "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
-            "sdf": sdf_clamped  # sdf values, a tensor with shape num_sample_points x 1
+            "sdf": sdf_clamped,  # sdf values, a tensor with shape num_sample_points x 1
+            "class_idx": class_idx # 0 for bed 1 for sofa
         }
 
     def __len__(self):
@@ -142,3 +148,13 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf = torch.clamp(samples[:, 3:], -0.1, 0.1)
 
         return points, sdf
+    
+    @staticmethod
+    def get_class_of_latent_code(latent_code, class_embedding):
+        """
+        Utility method for getting the class of a latent code
+        :param latent_code: latent code
+        :param class_embedding: class embedding
+        :return: class of the latent code
+        """
+        
