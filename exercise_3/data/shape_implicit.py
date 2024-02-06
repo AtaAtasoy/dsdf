@@ -5,6 +5,7 @@ import trimesh
 import os
 
 from exercise_3.util.misc import remove_nans
+from exercise_3.util.data_augmentations import apply_random_rotation
 
 from .positional_encoding import positional_encoding
 
@@ -13,9 +14,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    dataset_path = '/cluster/51/ataatasoy/project/data/'
+    dataset_path = '/home/atasoy/project/data'
+    project_path = '/home/atasoy/project/dsdf/exercise_3'
 
-    def __init__(self, shape_class, num_sample_points, split, num_encoding_functions=6):
+    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4, rotate_augment=False):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -23,10 +25,14 @@ class ShapeImplicit(torch.utils.data.Dataset):
         super().__init__()
         assert split in ['train', 'val', 'overfit']
 
+        self.experiment_type = experiment_type
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
-        self.items = Path(f'/cluster/51/ataatasoy/project/dsdf/exercise_3/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
+        if self.experiment_type == 'pe':
+            self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        
+        self.rotate_augment = rotate_augment
 
     def __getitem__(self, index):
         """
@@ -50,7 +56,11 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
-        encoded_points = self.pe_encoder(points)
+        if self.rotate_augment:
+            points = apply_random_rotation(points=points)
+        if self.experiment_type == 'pe':
+            points = self.pe_encoder(points)
+
         sdf = sdf_samples[:, 3:]
 
         # truncate sdf values
@@ -59,7 +69,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return {
             "name": item,       # identifier of the shape
             "indices": index,   # index parameter
-            "points": encoded_points,   # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
+            "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
             "sdf": sdf_clamped  # sdf values, a tensor with shape num_sample_points x 1
         }
 
@@ -86,7 +96,6 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param path_to_sdf: path to sdf file
         :return: a pytorch float32 torch tensor of shape (num_sample_points, 4) with each row being [x, y, z, sdf_value at xyz]
         """
-        print(f'Loading {path_to_sdf}')
         npz = np.load(path_to_sdf)
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"].astype(np.float32)))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"].astype(np.float32)))
@@ -117,7 +126,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param shape_id: shape identifier for ShapeNet object
         :return: trimesh object representing the mesh
         """
-        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh_simplified.obj'
+        mesh_path = f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/mesh.obj'
         return trimesh.load(mesh_path, force='mesh')
 
     @staticmethod

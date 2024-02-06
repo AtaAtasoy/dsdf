@@ -11,6 +11,7 @@ class DeepSDFVNDecoder(nn.Module):
         """
         super().__init__()
         dropout_prob = 0.2
+        self.num_encoding_functions = num_encoding_functions
     
         # TODO: Define model
         self.lin0 = VNLinearAndLeakyReLU(latent_size + 3 + 3 * 2 * num_encoding_functions, 512//3, use_batchnorm='none', negative_slope=0.0)
@@ -44,8 +45,9 @@ class DeepSDFVNDecoder(nn.Module):
         :param x_in: B x (latent_size + 3) tensor
         :return: B x 1 tensor
         """
-        B, D, N = x_in.shape
         # TODO: implement forward pass
+        x_in = torch.unsqueeze(x_in, 0);
+        x_in = x_in.transpose(1, -1)
         x = self.lin0(x_in)
         x = self.drop0(x)
 
@@ -73,5 +75,6 @@ class DeepSDFVNDecoder(nn.Module):
 
         x = x.transpose(1, -1)
         x = self.lin8(x)
+        x = torch.squeeze(x, 0);
 
         return x
