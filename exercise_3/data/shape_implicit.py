@@ -6,6 +6,7 @@ import os
 
 from exercise_3.util.misc import remove_nans
 from exercise_3.util.data_augmentations import apply_random_rotation
+from exercise_3.util.data_augmentations import apply_random_rotation
 
 from .positional_encoding import positional_encoding
 
