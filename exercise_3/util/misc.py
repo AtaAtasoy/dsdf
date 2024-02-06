@@ -23,7 +23,6 @@ def evaluate_model_on_grid(model, latent_code, device, grid_resolution, export_p
         if experiment_type == "pe":
             points = positional_encoding(points, model.num_encoding_functions)
         elif experiment_type == "multiclass":
-            #points = torch.cat([points, torch.zeros((points.shape[0], model.class_embedding_size)).to(device)], 1)
             # TODO:concat with class embedding
             points = torch.cat([points, class_embedding.expand(points.shape[0], -1)], 1)
         with torch.no_grad():

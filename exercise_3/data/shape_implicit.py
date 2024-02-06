@@ -2,8 +2,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import trimesh
-import os
-import json
 
 from exercise_3.util.misc import remove_nans
 
@@ -33,7 +31,6 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
         if self.experiment_type == 'pe':
             self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
-        self.object_index_to_class_idx = json.load(open(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/object_index_to_class.json'))
 
     def __getitem__(self, index):
         """
@@ -46,9 +43,10 @@ class ShapeImplicit(torch.utils.data.Dataset):
              "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
         # get shape_id at index
-        item = self.items[index]
+        item = self.items[index].split(' ')[0]
         
-        class_idx = self.object_id_to_class[item]
+        # get the class index
+        class_idx = int(self.items[index].split(' ')[1])
 
         # get path to sdf data
         sdf_samples_path = f'{self.dataset_path}/{item}/sdf.npz'

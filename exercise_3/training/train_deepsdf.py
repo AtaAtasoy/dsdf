@@ -45,9 +45,7 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
     # Keep track of best training loss for saving the model
     best_loss = float('inf')
-    
-    latent_index_to_class_index = {i: ShapeImplicit.object_id_to_class_idx[ShapeImplicit.items[i]] for i in range(len(ShapeImplicit.items))}
-    
+        
     for epoch in range(config['max_epochs']):
 
         for batch_idx, batch in enumerate(train_dataloader):
@@ -64,20 +62,22 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
             # expand so that we have an appropriate latent vector per sdf sample
             batch_latent_vectors = latent_vectors(batch['indices']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
             batch_latent_vectors = batch_latent_vectors.reshape((num_points_per_batch, config['latent_code_length']))
+            
+            batch_class_idx = batch['class_idx']
+            print(batch_class_idx.item())
+            # get class codes corresponding to batch shapes
+            batch_class_vectors = class_vectors(batch_class_idx.item())
 
             # reshape points and sdf for forward pass
             if config['experiment_type'] == "pe":
-                points = batch['points'].reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions']))
+                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions']))
             else:
-                points = batch['points'].reshape((num_points_per_batch, 3))
-            sdf = batch['sdf'].reshape((num_points_per_batch, 1))
+                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + config['class_embedding_length']))
+            sdf = torch.tensor(batch['sdf']).reshape((num_points_per_batch, 1))
 
-            # get class codes corresponding to batch shapes
-            class_vectors = class_vectors(batch['class_name']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
 
-            
             # TODO: perform forward pass
-            predicted_sdf = model(torch.cat([batch_latent_vectors, points, class_vectors], dim=1))
+            predicted_sdf = model(torch.cat([batch_latent_vectors, points, batch_class_vectors], dim=1))
             # TODO: truncate predicted sdf between -0.1 and 0.1
             predicted_sdf = torch.clamp(predicted_sdf, -0.1, 0.1)
 
@@ -120,15 +120,14 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
                 # Set model to eval
                 model.eval()
                 indices = torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device)
-                #TODO: get class indices corresponding for the first 5 shapes
-                class_indices = torch.LongTensor(latent_idx[indices]).to(device)
+                #TODO: get class indices corresponding for the first 5 shapes             
+                class_ids = ShapeImplicit.items[:range(min(5, latent_vectors.num_embeddings)), 1]
                 
                 latent_vectors_for_vis = latent_vectors(indices)
-                class_vectors_for_vis = class_vectors(class_indices)
                 
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, class_vectors_for_vis[latent_idx: ], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                    evaluate_model_on_grid(model, class_vectors[class_ids[latent_idx]], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 
@@ -176,13 +175,10 @@ def main(config):
     )
     
     # Instantiate model
-    model = DeepSDFDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'], config['class_embed_size'] if config["experiment_type"] == "multiclass" else 0)
+    model = DeepSDFDecoder(latent_size=config['latent_code_length'], experiment_type=config["experiment_type"], num_encoding_functions=config['num_encoding_functions'], class_embedding_length=config['class_embedding_length'])
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
-    class_vectors = torch.nn.Embedding(len(config['number_of_classes']), config['class_embed_size'], max_norm=1.0)
-    
-    # {class_name: embedding}
-    class_name_to_embedding = {"bed": class_vectors[0], "sofa": class_vectors[1]}
+    class_vectors = torch.nn.Embedding(config['number_of_classes'], config['class_embedding_length'], max_norm=1.0)
     
     # Load model if resuming from checkpoint
     if config['resume_ckpt'] is not None:
@@ -198,4 +194,4 @@ def main(config):
     Path(f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
-    train(model, latent_vectors, class_vectors, class_name_to_embedding, train_dataloader, device, config)
+    train(model, latent_vectors, class_vectors, train_dataloader, device, config)
