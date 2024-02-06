@@ -15,7 +15,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     """
     
     dataset_path = '/workspace/project/data'
-    project_path = '/workspace/project/dsdf/exercise_3'
+    project_path = '/workspace/project/dsdf/exercise_3'    
 
     def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4):
         """
@@ -88,6 +88,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         batch['points'] = batch['points'].to(device)
         batch['sdf'] = batch['sdf'].to(device)
         batch['indices'] = batch['indices'].to(device)
+        batch['class_idx'] = batch['class_idx'].to(device)
 
     def get_sdf_samples(self, path_to_sdf):
         """
@@ -147,12 +148,16 @@ class ShapeImplicit(torch.utils.data.Dataset):
 
         return points, sdf
     
-    @staticmethod
-    def get_class_of_latent_code(latent_code, class_embedding):
+    def get_class_of_items(self, indices):
         """
         Utility method for getting the class of a latent code
         :param latent_code: latent code
         :param class_embedding: class embedding
         :return: class of the latent code
         """
-        
+        result = []
+        for i in indices:
+            class_idx = self.items[i].split(' ')[1]
+            result.append(class_idx)
+            
+        return result

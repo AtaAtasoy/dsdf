@@ -57,23 +57,22 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
             # calculate number of samples per batch (= number of shapes in batch * number of points per shape)
             num_points_per_batch = batch['points'].shape[0] * batch['points'].shape[1]
-
+            
             # get latent codes corresponding to batch shapes
             # expand so that we have an appropriate latent vector per sdf sample
             batch_latent_vectors = latent_vectors(batch['indices']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
             batch_latent_vectors = batch_latent_vectors.reshape((num_points_per_batch, config['latent_code_length']))
             
-            batch_class_idx = batch['class_idx']
-            print(batch_class_idx.item())
             # get class codes corresponding to batch shapes
-            batch_class_vectors = class_vectors(batch_class_idx.item())
+            batch_class_vectors = class_vectors(batch['class_idx']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
+            batch_class_vectors = batch_class_vectors.reshape((num_points_per_batch, config['class_embedding_length']))
 
             # reshape points and sdf for forward pass
             if config['experiment_type'] == "pe":
-                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions']))
+                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions'])).to(device)
             else:
-                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + config['class_embedding_length']))
-            sdf = torch.tensor(batch['sdf']).reshape((num_points_per_batch, 1))
+                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3)).to(device)
+            sdf = torch.tensor(batch['sdf']).reshape((num_points_per_batch, 1)).to(device)
 
 
             # TODO: perform forward pass
@@ -86,7 +85,7 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
             # regularize latent codes
             latent_code_regularization = torch.mean(torch.norm(batch_latent_vectors, dim=1)) * config['lambda_code_regularization']
-            class_code_regularization = torch.mean(torch.norm(class_vectors, dim=1)) * config['lambda_code_regularization']
+            class_code_regularization = torch.mean(torch.norm(batch_class_vectors, dim=1)) * config['lambda_code_regularization']
             
             if epoch > 100:
                 loss = loss + latent_code_regularization + class_code_regularization
@@ -120,14 +119,20 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
                 # Set model to eval
                 model.eval()
                 indices = torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device)
-                #TODO: get class indices corresponding for the first 5 shapes             
-                class_ids = ShapeImplicit.items[:range(min(5, latent_vectors.num_embeddings)), 1]
                 
+                #TODO: get class indices corresponding for the first 5 shapes   
+                class_ids = []          
+                for index in indices:
+                    class_ids.append(train_dataloader.dataset.items[index].split(' ')[1])
+                    
+                print(f'Class indices for the first {len(indices)} shapes: {class_ids}')
+                    
                 latent_vectors_for_vis = latent_vectors(indices)
+                class_vectors_for_vis = class_vectors(class_ids)
                 
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, class_vectors[class_ids[latent_idx]], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                    evaluate_model_on_grid(model, class_vectors_for_vis, latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 
