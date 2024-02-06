@@ -123,16 +123,15 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
                 #TODO: get class indices corresponding for the first 5 shapes   
                 class_ids = []          
                 for index in indices:
-                    class_ids.append(train_dataloader.dataset.items[index].split(' ')[1])
+                    class_ids.append(train_dataloader.dataset[index].get('class_idx'))
                     
-                print(f'Class indices for the first {len(indices)} shapes: {class_ids}')
-                    
+                class_ids = torch.LongTensor(class_ids).to(device)                    
                 latent_vectors_for_vis = latent_vectors(indices)
                 class_vectors_for_vis = class_vectors(class_ids)
                 
                 for latent_idx in range(latent_vectors_for_vis.shape[0]):
                     # create mesh and save to disk
-                    evaluate_model_on_grid(model, class_vectors_for_vis, latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                    evaluate_model_on_grid(model, class_vectors_for_vis[latent_idx, :], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
                 # set model back to train
                 model.train()
 

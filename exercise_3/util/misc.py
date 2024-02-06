@@ -12,7 +12,7 @@ def remove_nans(tensor):
     return tensor[~tensor_nan, :]
 
 
-def evaluate_model_on_grid(model, latent_code, device, grid_resolution, export_path, experiment_type, class_embedding):
+def evaluate_model_on_grid(model, class_embedding, latent_code, device, grid_resolution, export_path, experiment_type):
     x_range = y_range = z_range = np.linspace(-1., 1., grid_resolution)
     grid_x, grid_y, grid_z = np.meshgrid(x_range, y_range, z_range, indexing='ij')
     grid_x, grid_y, grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
@@ -22,9 +22,7 @@ def evaluate_model_on_grid(model, latent_code, device, grid_resolution, export_p
     for points in stacked_split:
         if experiment_type == "pe":
             points = positional_encoding(points, model.num_encoding_functions)
-        elif experiment_type == "multiclass":
-            # TODO:concat with class embedding
-            points = torch.cat([points, class_embedding.expand(points.shape[0], -1)], 1)
+        points = torch.cat([points, class_embedding.expand(points.shape[0], -1)], 1)
         with torch.no_grad():
             sdf = model(torch.cat([latent_code.unsqueeze(0).expand(points.shape[0], -1), points], 1))
         sdf_values.append(sdf.detach().cpu())
