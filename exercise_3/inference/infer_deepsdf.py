@@ -7,10 +7,11 @@ from exercise_3.data.shape_implicit import ShapeImplicit
 from exercise_3.model.deepsdf import DeepSDFDecoder
 from exercise_3.util.misc import evaluate_model_on_grid
 
+from exercise_3.data.positional_encoding import positional_encoding
 
 class InferenceHandlerDeepSDF:
 
-    def __init__(self, latent_code_length, experiment, device):
+    def __init__(self, latent_code_length, experiment, device, num_encoding_functions=6, experiment_type='vanilla'):
         """
         :param latent_code_length: latent code length for the trained DeepSDF model
         :param experiment: path to experiment folder for the trained model; should contain "model_best.ckpt" and "latent_best.ckpt"
@@ -21,6 +22,9 @@ class InferenceHandlerDeepSDF:
         self.device = device
         self.truncation_distance = 0.01
         self.num_samples = 4096
+        self.num_encoding_functions = num_encoding_functions
+        self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        self.experiment_type = experiment_type
 
     def get_model(self):
         """
@@ -69,6 +73,8 @@ class InferenceHandlerDeepSDF:
             batch_indices = random.sample(range(points.shape[0]), self.num_samples)
 
             batch_points = points[batch_indices, :]
+            if self.experiment_type == 'pe':   
+                batch_points = self.pe_encoder(batch_points)
             batch_sdf = sdf[batch_indices, :]
 
             # move batch to device
@@ -101,10 +107,10 @@ class InferenceHandlerDeepSDF:
         print('Optimization complete.')
 
         # visualize the reconstructed shape
-        vertices, faces = evaluate_model_on_grid(model, latent.squeeze(0), self.device, 64, None)
+        vertices, faces = evaluate_model_on_grid(model, latent.squeeze(0), self.device, 64, None, experiment_type=self.experiment_type)
         return vertices, faces
 
-    def interpolate(self, shape_0_id, shape_1_id, num_interpolation_steps):
+    def interpolate(self, shape_class, shape_0_id, shape_1_id, num_interpolation_steps):
         """
         Interpolates latent codes between provided shapes and exports the intermediate reconstructions
         :param shape_0_id: first shape identifier
@@ -118,7 +124,7 @@ class InferenceHandlerDeepSDF:
         train_latent_codes = self.get_latent_codes()
 
         # get indices of shape_ids latent codes
-        train_items = ShapeImplicit(4096, "train").items
+        train_items = ShapeImplicit(shape_class, 4096, "train").items
         latent_code_indices = torch.LongTensor([train_items.index(shape_0_id), train_items.index(shape_1_id)]).to(self.device)
 
         # get latent codes for provided shape
@@ -128,7 +134,8 @@ class InferenceHandlerDeepSDF:
             # TODO: interpolate the latent codes: latent_codes[0, :] and latent_codes[1, :]
             interpolated_code = latent_codes[0, :] + (latent_codes[1, :] - latent_codes[0, :]) * i / num_interpolation_steps
             # reconstruct the shape at the interpolated latent code
-            evaluate_model_on_grid(model, interpolated_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj")
+            evaluate_model_on_grid(model, interpolated_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
+
 
     def infer_from_latent_code(self, latent_code_index):
         """
@@ -146,7 +153,6 @@ class InferenceHandlerDeepSDF:
         latent_codes = train_latent_codes(latent_code_indices)
 
         # reconstruct the shape at latent code
-        vertices, faces = evaluate_model_on_grid(model, latent_codes[0], self.device, 64, None)
+        vertices, faces = evaluate_model_on_grid(model, latent_codes[0], self.device, 64, None, self.experiment_type)
 
         return vertices, faces
-
