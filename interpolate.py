@@ -41,6 +41,10 @@ def main():
 
     # create a visualization of the interpolation process
     save_path = f'dsdf/exercise_3/experiment_visuals/{experiment_name}'
+
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+        
     meshes_to_gif(mesh_paths, f"{save_path}/{shape_id_1}_{shape_id_2}_latent_interp.gif", 20)
 
 

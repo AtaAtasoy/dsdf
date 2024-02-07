@@ -57,7 +57,7 @@ def meshes_to_gif(mesh_paths, output_path, fps):
             base_mesh.apply_scale(1 / scale)
             mesh = pyrender.Mesh.from_trimesh(base_mesh)
             camera_rotation = np.eye(4)
-            camera_rotation[:3, :3] = Rotation.from_euler('y', -135, degrees=True).as_matrix() @ Rotation.from_euler('x', -45, degrees=True).as_matrix()
+            #camera_rotation[:3, :3] = Rotation.from_euler('y', -135, degrees=True).as_matrix() @ Rotation.from_euler('x', -45, degrees=True).as_matrix()
             camera_translation = np.eye(4)
             camera_translation[:3, 3] = np.array([0, 0, 1.25])
             camera_pose = camera_rotation @ camera_translation

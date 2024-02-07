@@ -30,7 +30,7 @@ class InferenceHandlerDeepSDF:
         """
         :return: trained deep sdf model loaded from disk
         """
-        model = DeepSDFDecoder(self.latent_code_length)
+        model = DeepSDFDecoder(latent_size= self.latent_code_length, experiment_type=self.experiment_type, num_encoding_functions=self.num_encoding_functions)
         model.load_state_dict(torch.load(self.experiment / "model_best.ckpt", map_location='cpu'))
         model.eval()
         model.to(self.device)

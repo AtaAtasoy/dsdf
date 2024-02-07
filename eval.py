@@ -30,7 +30,7 @@ def main():
         os.makedirs(save_path)
 
     device = torch.device('cuda:0')  # change this to cpu if you're not using a gpu
-    inference_handler = InferenceHandlerDeepSDF(256, f'/home/atasoy/project/dsdf/exercise_3/runs/{experiment_name}', device)
+    inference_handler = InferenceHandlerDeepSDF(384, f'/home/atasoy/project/dsdf/exercise_3/runs/{experiment_name}', device, num_encoding_functions=2, experiment_type=experiment_type)
     points, sdf = ShapeImplicit.get_all_sdf_samples(shape_id, shape_class)
 
     if vis_pointcloud:
