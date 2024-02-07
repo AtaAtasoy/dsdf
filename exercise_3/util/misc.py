@@ -17,13 +17,14 @@ def evaluate_model_on_grid(model, latent_code, device, grid_resolution, export_p
     grid_x, grid_y, grid_z = np.meshgrid(x_range, y_range, z_range, indexing='ij')
     grid_x, grid_y, grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
     stacked = torch.from_numpy(np.hstack((grid_x[:, np.newaxis], grid_y[:, np.newaxis], grid_z[:, np.newaxis]))).float().to(device)
-    stacked_split = torch.split(stacked, 32 ** 3, dim=0)
+    stacked_split = torch.split(stacked, 16 ** 3, dim=0) # this was 32
     sdf_values = []
     for points in stacked_split:
         if experiment_type == "pe":
             points = positional_encoding(points, model.num_encoding_functions)
         with torch.no_grad():
-            sdf = model(torch.cat([latent_code.unsqueeze(0).expand(points.shape[0], -1), points], 1))
+            #sdf = model(torch.cat([latent_code.unsqueeze(0).expand(points.shape[0], -1), points], 1))
+            sdf = model(x_in=points, latent_code=latent_code.unsqueeze(0).expand(points.shape[0], -1))
         sdf_values.append(sdf.detach().cpu())
     sdf_values = torch.cat(sdf_values, dim=0).numpy().reshape((grid_resolution, grid_resolution, grid_resolution))
     if 0 < sdf_values.min() or 0 > sdf_values.max():

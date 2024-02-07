@@ -9,11 +9,12 @@ import torch.nn.functional as F
 
 EPS = 1e-6
 
+
+
 class VNLinear(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super().__init__()
-        # In DeepSDF, weight normed Linear layers are used.
-        self.map_to_feat = torch.nn.utils.weight_norm(nn.Linear(in_channels, out_channels, bias=False))
+        super(VNLinear, self).__init__()
+        self.map_to_feat = nn.Linear(in_channels, out_channels, bias=False)
     
     def forward(self, x):
         '''
@@ -25,12 +26,11 @@ class VNLinear(nn.Module):
 
 class VNLeakyReLU(nn.Module):
     def __init__(self, in_channels, share_nonlinearity=False, negative_slope=0.2):
-        super().__init__()
-         # In DeepSDF, weight normed Linear layers are used.
+        super(VNLeakyReLU, self).__init__()
         if share_nonlinearity == True:
-            self.map_to_dir = torch.nn.utils.weight_norm(nn.Linear(in_channels, 1, bias=False))
+            self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
         else:
-            self.map_to_dir = torch.nn.utils.weight_norm(nn.Linear(in_channels, in_channels, bias=False))
+            self.map_to_dir = nn.Linear(in_channels, in_channels, bias=False)
         self.negative_slope = negative_slope
     
     def forward(self, x):
@@ -46,63 +46,43 @@ class VNLeakyReLU(nn.Module):
 
 
 class VNLinearLeakyReLU(nn.Module):
-    def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, negative_slope=0.2):
-        super().__init__()
-        self.dim = dim
-        self.negative_slope = negative_slope
-        
-        self.map_to_feat = nn.Linear(in_channels, out_channels, bias=False)
-        self.batchnorm = VNBatchNorm(out_channels, dim=dim)
-        
-        if share_nonlinearity == True:
-            self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
-        else:
-            self.map_to_dir = nn.Linear(in_channels, out_channels, bias=False)
-    
-    def forward(self, x):
-        '''
-        x: point features of shape [B, N_feat, 3, N_samples, ...]
-        '''
-        # Linear
-        p = self.map_to_feat(x.transpose(1,-1)).transpose(1,-1)
-        # BatchNorm
-        p = self.batchnorm(p)
-        # LeakyReLU
-        d = self.map_to_dir(x.transpose(1,-1)).transpose(1,-1)
-        dotprod = (p*d).sum(2, keepdims=True)
-        mask = (dotprod >= 0).float()
-        d_norm_sq = (d*d).sum(2, keepdims=True)
-        x_out = self.negative_slope * p + (1-self.negative_slope) * (mask*p + (1-mask)*(p-(dotprod/(d_norm_sq+EPS))*d))
-        return x_out
-
-
-class VNLinearAndLeakyReLU(nn.Module):
-    def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, use_batchnorm='norm', negative_slope=0.2):
-        super().__init__()
+    def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, use_batchnorm=True, negative_slope=0.2):
+        super(VNLinearLeakyReLU, self).__init__()
         self.dim = dim
         self.share_nonlinearity = share_nonlinearity
         self.use_batchnorm = use_batchnorm
         self.negative_slope = negative_slope
         
-        self.linear = VNLinear(in_channels, out_channels)
-        self.leaky_relu = VNLeakyReLU(out_channels, share_nonlinearity=share_nonlinearity, negative_slope=negative_slope)
+        # Conv
+        self.map_to_feat = nn.Linear(in_channels, out_channels, bias=False)
         
         # BatchNorm
         self.use_batchnorm = use_batchnorm
-        if use_batchnorm != 'none':
-            self.batchnorm = VNBatchNorm(out_channels, dim=dim, mode=use_batchnorm)
+        if use_batchnorm == True:
+            self.batchnorm = VNBatchNorm(out_channels, dim=dim)
+        
+        # LeakyReLU
+        if share_nonlinearity == True:
+            self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
+        else:
+            self.map_to_dir = nn.Linear(in_channels, out_channels, bias=False)
+        self.negative_slope = negative_slope
     
     def forward(self, x):
         '''
         x: point features of shape [B, N_feat, 3, N_samples, ...]
         '''
         # Conv
-        x = self.linear(x)
+        p = self.map_to_feat(x.transpose(1,-1)).transpose(1,-1)
         # InstanceNorm
-        if self.use_batchnorm != 'none':
-            x = self.batchnorm(x)
+        if self.use_batchnorm == True:
+            p = self.batchnorm(p)
         # LeakyReLU
-        x_out = self.leaky_relu(x)
+        d = self.map_to_dir(x.transpose(1,-1)).transpose(1,-1)
+        dotprod = (p*d).sum(2, keepdim=True)
+        mask = (dotprod >= 0).float()
+        d_norm_sq = (d*d).sum(2, keepdim=True)
+        x_out = self.negative_slope * p + (1-self.negative_slope) * (mask*p + (1-mask)*(p-(dotprod/(d_norm_sq+EPS))*d))
         return x_out
 
 
@@ -119,8 +99,7 @@ class VNBatchNorm(nn.Module):
         '''
         x: point features of shape [B, N_feat, 3, N_samples, ...]
         '''
-        # norm = torch.sqrt((x*x).sum(2))
-        norm = torch.norm(x, dim=2) + EPS
+        norm = torch.sqrt((x*x).sum(2))
         norm_bn = self.bn(norm)
         norm = norm.unsqueeze(2)
         norm_bn = norm_bn.unsqueeze(2)
@@ -130,34 +109,35 @@ class VNBatchNorm(nn.Module):
 
 
 class VNMaxPool(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, share_nonlinearity=False):
         super(VNMaxPool, self).__init__()
-        self.map_to_dir = nn.Linear(in_channels, in_channels, bias=False)
+        if share_nonlinearity:
+            self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
+        else:
+            self.map_to_dir = nn.Linear(in_channels, in_channels, bias=False)
     
     def forward(self, x):
         '''
         x: point features of shape [B, N_feat, 3, N_samples, ...]
         '''
         d = self.map_to_dir(x.transpose(1,-1)).transpose(1,-1)
-        dotprod = (x*d).sum(2, keepdims=True)
+        dotprod = (x*d).sum(2, keepdim=True)
         idx = dotprod.max(dim=-1, keepdim=False)[1]
         index_tuple = torch.meshgrid([torch.arange(j) for j in x.size()[:-1]]) + (idx,)
         x_max = x[index_tuple]
         return x_max
 
 
-def mean_pool(x, dim=-1, keepdim=False):
-    return x.mean(dim=dim, keepdim=keepdim)
-
-
 class VNStdFeature(nn.Module):
-    def __init__(self, in_channels, dim=4, normalize_frame=False, share_nonlinearity=False, negative_slope=0.2):
+    def __init__(self, in_channels, dim=4, normalize_frame=False, share_nonlinearity=False, use_batchnorm=True):
         super(VNStdFeature, self).__init__()
         self.dim = dim
         self.normalize_frame = normalize_frame
+        self.share_nonlinearity = share_nonlinearity
+        self.use_batchnorm = use_batchnorm
         
-        self.vn1 = VNLinearLeakyReLU(in_channels, in_channels//2, dim=dim, share_nonlinearity=share_nonlinearity, negative_slope=negative_slope)
-        self.vn2 = VNLinearLeakyReLU(in_channels//2, in_channels//4, dim=dim, share_nonlinearity=share_nonlinearity, negative_slope=negative_slope)
+        self.vn1 = VNLinearLeakyReLU(in_channels, in_channels//2, dim=dim, share_nonlinearity=share_nonlinearity, use_batchnorm=use_batchnorm)
+        self.vn2 = VNLinearLeakyReLU(in_channels//2, in_channels//4, dim=dim, share_nonlinearity=share_nonlinearity, use_batchnorm=use_batchnorm)
         if normalize_frame:
             self.vn_lin = nn.Linear(in_channels//4, 2, bias=False)
         else:
@@ -167,8 +147,7 @@ class VNStdFeature(nn.Module):
         '''
         x: point features of shape [B, N_feat, 3, N_samples, ...]
         '''
-        z0 = x
-        z0 = self.vn1(z0)
+        z0 = self.vn1(x)
         z0 = self.vn2(z0)
         z0 = self.vn_lin(z0.transpose(1, -1)).transpose(1, -1)
         
@@ -176,15 +155,15 @@ class VNStdFeature(nn.Module):
             # make z0 orthogonal. u2 = v2 - proj_u1(v2)
             v1 = z0[:,0,:]
             #u1 = F.normalize(v1, dim=1)
-            v1_norm = torch.sqrt((v1*v1).sum(1, keepdims=True))
+            v1_norm = torch.sqrt((v1*v1).sum(1, keepdim=True))
             u1 = v1 / (v1_norm+EPS)
             v2 = z0[:,1,:]
-            v2 = v2 - (v2*u1).sum(1, keepdims=True)*u1
+            v2 = v2 - (v2*u1).sum(1, keepdim=True)*u1
             #u2 = F.normalize(u2, dim=1)
-            v2_norm = torch.sqrt((v2*v2).sum(1, keepdims=True))
+            v2_norm = torch.sqrt((v2*v2).sum(1, keepdim=True))
             u2 = v2 / (v2_norm+EPS)
 
-            # compute the cross product of the two output vectors        
+            # compute the cross product of the two output vectors       
             u3 = torch.cross(u1, u2)
             z0 = torch.stack([u1, u2, u3], dim=1).transpose(1, 2)
         else:
@@ -198,3 +177,50 @@ class VNStdFeature(nn.Module):
             x_std = torch.einsum('bijmn,bjkmn->bikmn', x, z0)
         
         return x_std, z0
+
+
+# Resnet Blocks
+class VNResnetBlockFC(nn.Module):
+    ''' Fully connected ResNet Block class.
+
+    Args:
+        size_in (int): input dimension
+        size_out (int): output dimension
+        size_h (int): hidden dimension
+    '''
+
+    def __init__(self, size_in, size_out=None, size_h=None):
+        super().__init__()
+        # Attributes
+        if size_out is None:
+            size_out = size_in
+
+        if size_h is None:
+            size_h = min(size_in, size_out)
+
+        self.size_in = size_in
+        self.size_h = size_h
+        self.size_out = size_out
+        # Submodules
+        self.fc_0 = VNLinear(size_in, size_h)
+        self.fc_1 = VNLinear(size_h, size_out)
+        self.actvn_0 = VNLeakyReLU(size_in, negative_slope=0.0, share_nonlinearity=False)
+        self.actvn_1 = VNLeakyReLU(size_h, negative_slope=0.0, share_nonlinearity=False)
+
+        if size_in == size_out:
+            self.shortcut = None
+        else:
+            self.shortcut = VNLinear(size_in, size_out)
+        # Initialization
+        nn.init.zeros_(self.fc_1.map_to_feat.weight)
+
+    def forward(self, x):
+        net = self.fc_0(self.actvn_0(x))
+        dx = self.fc_1(self.actvn_1(net))
+
+        if self.shortcut is not None:
+            x_s = self.shortcut(x)
+        else:
+            x_s = x
+
+        return x_s + dx

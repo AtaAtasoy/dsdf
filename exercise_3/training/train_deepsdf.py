@@ -63,9 +63,9 @@ def train(model, latent_vectors, train_dataloader, device, config):
             else:
                 points = batch['points'].reshape((num_points_per_batch, 3))
             sdf = batch['sdf'].reshape((num_points_per_batch, 1))
-
+            
             # TODO: perform forward pass
-            predicted_sdf = model(torch.cat([batch_latent_vectors, points], dim=1))
+            predicted_sdf = model(x_in=points, latent_code=batch_latent_vectors)
             # TODO: truncate predicted sdf between -0.1 and 0.1
             predicted_sdf = torch.clamp(predicted_sdf, -0.1, 0.1)
 
@@ -143,7 +143,7 @@ def main(config):
         print('Using CPU')
 
     # create dataloaders
-    train_dataset = ShapeImplicit(config['shape_class'], config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit', config['experiment_type'], config['num_encoding_functions'])
+    train_dataset = ShapeImplicit(config['shape_class'], config['num_sample_points'], 'train' if not config['is_overfit'] else 'overfit', config['experiment_type'], config['num_encoding_functions'], rotate_augment=False)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,   # Datasets return data one sample at a time; Dataloaders use them and aggregate samples into batches
         batch_size=config['batch_size'],   # The size of batches is defined here
@@ -151,10 +151,10 @@ def main(config):
         num_workers=0,   # Data is usually loaded in parallel by num_workers
         pin_memory=True  # This is an implementation detail to speed up data uploading to the GPU
     )
-    
+            
     # Instantiate model
-    #model = DeepSDFVNDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'])
-    model = DeepSDFVNDecoder(config['latent_code_length'], config['num_encoding_functions'])
+    model = DeepSDFVNDecoder(config['latent_code_length'], config["experiment_type"], config['num_encoding_functions'])
+    #model = DeepSDFVNDecoder(config['latent_code_length'], config['num_encoding_functions'])
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
     #class_vectors = torch.nn.Embedding(2, config['class_embed_size'])
@@ -174,3 +174,4 @@ def main(config):
 
     # Start training
     train(model, latent_vectors, train_dataloader, device, config)
+    return model, latent_vectors
