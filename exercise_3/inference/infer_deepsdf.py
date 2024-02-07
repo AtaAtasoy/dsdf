@@ -110,7 +110,7 @@ class InferenceHandlerDeepSDF:
         vertices, faces = evaluate_model_on_grid(model, latent.squeeze(0), self.device, 64, None, experiment_type=self.experiment_type)
         return vertices, faces
 
-    def interpolate(self, shape_0_id, shape_1_id, num_interpolation_steps):
+    def interpolate(self, shape_class, shape_0_id, shape_1_id, num_interpolation_steps):
         """
         Interpolates latent codes between provided shapes and exports the intermediate reconstructions
         :param shape_0_id: first shape identifier
@@ -124,7 +124,7 @@ class InferenceHandlerDeepSDF:
         train_latent_codes = self.get_latent_codes()
 
         # get indices of shape_ids latent codes
-        train_items = ShapeImplicit(4096, "train").items
+        train_items = ShapeImplicit(shape_class, 4096, "train").items
         latent_code_indices = torch.LongTensor([train_items.index(shape_0_id), train_items.index(shape_1_id)]).to(self.device)
 
         # get latent codes for provided shape
