@@ -47,8 +47,11 @@ class InferenceHandlerDeepSDF:
         :return: latent codes which were optimized during training
         """
         latent_codes = torch.nn.Embedding.from_pretrained(torch.load(self.experiment / "latent_best.ckpt", map_location='cpu')['weight'])
+        train_items = ShapeImplicit("multiclass", 4096, "train").items
+        train_items_class_ids = [int(item.split(' ')[1]) for item in train_items]
+
         latent_codes.to(self.device)
-        return latent_codes
+        return latent_codes, train_items_class_ids
 
     def get_class_codes(self):
         class_codes = torch.nn.Embedding.from_pretrained(torch.load(self.experiment / "class_best.ckpt", map_location='cpu')['weight'])
@@ -134,14 +137,16 @@ class InferenceHandlerDeepSDF:
         """
         Interpolates latent codes between provided shapes and exports the intermediate reconstructions
         :param shape_0_id: first shape identifier
+        :param shape_0_class_id: first shape class identifier
         :param shape_1_id: second shape identifier
+        :param shape_1_class_id: second shape class identifier
         :param num_interpolation_steps: number of intermediate interpolated points
         :return: None, saves the interpolated shapes to disk
         """
 
         # get saved model and latent codes
         model = self.get_model()
-        train_latent_codes = self.get_latent_codes()
+        train_latent_codes, _ = self.get_latent_codes()
         train_class_codes = self.get_class_codes()
         
         # get indices of shape_ids latent codes
@@ -165,9 +170,87 @@ class InferenceHandlerDeepSDF:
             #interpolated_code = latent_codes[0, :] + (latent_codes[1, :] - latent_codes[0, :]) * i / num_interpolation_steps
             interpolated_latent_code = shape_code[0, :latent_code_length] + (shape_code[1, :latent_code_length] - shape_code[0, :latent_code_length]) * i / num_interpolation_steps
             interpolated_class_code = shape_code[0, latent_code_length:] + (shape_code[1, latent_code_length:] - shape_code[0, latent_code_length:]) * i / num_interpolation_steps
-            
+ 
             # reconstruct the shape at the interpolated latent code
             evaluate_model_on_grid(model, interpolated_class_code, interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
+
+    
+    def interpolate_w_fixed_class_code(self, latent_code_length, shape_0_id, shape_0_class_id, shape_1_id, num_interpolation_steps):
+        """
+        Interpolates latent codes between provided shapes and exports the intermediate reconstructions
+        :param shape_0_id: first shape identifier
+        :param shape_0_class_id: first shape class identifier
+        :param shape_1_id: second shape identifier
+        :param num_interpolation_steps: number of intermediate interpolated points
+        :return: None, saves the interpolated shapes to disk
+        """
+
+        # get saved model and latent codes
+        model = self.get_model()
+        train_latent_codes = self.get_latent_codes()
+        train_class_codes = self.get_class_codes()
+        
+        # get indices of shape_ids latent codes
+        train_items = ShapeImplicit("multiclass", 4096, "train").items
+        # B084ZBX1YH 1
+        
+        # Split the first and second items from the train_items list
+        train_items_ids = [item.split(' ')[0] for item in train_items]
+        
+        latent_code_indices = torch.LongTensor([train_items_ids.index(shape_0_id), train_items_ids.index(shape_1_id)]).to(self.device)
+        class_code_indices = torch.LongTensor([shape_0_class_id]).to(self.device)
+        
+        # get latent codes for provided shape
+        latent_codes = train_latent_codes(latent_code_indices)
+        class_codes = train_class_codes(class_code_indices)
+        
+        shape_code = torch.cat([latent_codes, class_codes], dim=1)
+        
+        for i in range(0, num_interpolation_steps + 1):
+            # TODO: interpolate the latent codes: latent_codes[0, :] and latent_codes[1, :]
+            #interpolated_code = latent_codes[0, :] + (latent_codes[1, :] - latent_codes[0, :]) * i / num_interpolation_steps
+            interpolated_latent_code = shape_code[0, :latent_code_length] + (shape_code[1, :latent_code_length] - shape_code[0, :latent_code_length]) * i / num_interpolation_steps
+            
+            # reconstruct the shape at the interpolated latent code
+            evaluate_model_on_grid(model, class_codes, interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
+            
+    
+    def interpolate_w_random_class_code(self, latent_code_length, shape_0_id, shape_1_id, num_interpolation_steps):
+        """
+        Interpolates latent codes between provided shapes and exports the intermediate reconstructions
+        :param shape_0_id: first shape identifier
+        :param shape_1_id: second shape identifier
+        :param num_interpolation_steps: number of intermediate interpolated points
+        :return: None, saves the interpolated shapes to disk
+        """
+        model = self.get_model()
+        train_latent_codes = self.get_latent_codes()
+        
+        class_code = torch.rand(2, self.class_embedding_length).normal_(mean=0, std=0.01).to(self.device)
+        
+        train_items = ShapeImplicit("multiclass", 4096, "train").items
+        train_items_ids = [item.split(' ')[0] for item in train_items]
+        
+        latent_code_indices = torch.LongTensor([train_items_ids.index(shape_0_id), train_items_ids.index(shape_1_id)]).to(self.device)
+        
+        # get latent codes for provided shape
+        latent_codes = train_latent_codes(latent_code_indices)
+        print(f'Latent Code: {latent_codes.shape}')
+        print(f'Class Code: {class_code.shape}')
+        
+        shape_code = torch.cat([latent_codes, class_code], dim=1)
+        print(f'Shape Code: {shape_code.shape}')
+        
+        
+        for i in range(0, num_interpolation_steps + 1):
+            # TODO: interpolate the latent codes: latent_codes[0, :] and latent_codes[1, :]
+            #interpolated_code = latent_codes[0, :] + (latent_codes[1, :] - latent_codes[0, :]) * i / num_interpolation_steps
+            interpolated_latent_code = shape_code[0, :latent_code_length] + (shape_code[1, :latent_code_length] - shape_code[0, :latent_code_length]) * i / num_interpolation_steps
+            print(f'Interpolated Latent Code: {interpolated_latent_code.shape}')
+            
+            # reconstruct the shape at the interpolated latent code
+            evaluate_model_on_grid(model, class_code[0], interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
+        
 
 
     def infer_from_latent_code(self, latent_code_index):
@@ -192,3 +275,9 @@ class InferenceHandlerDeepSDF:
         vertices, faces = evaluate_model_on_grid(model, class_codes, latent_codes[0], self.device, 64, None, self.experiment_type)
 
         return vertices, faces
+    
+    def get_number_of_items(self, shape_class, num_points):
+        """
+        :return: number of items in the train set
+        """
+        return len(ShapeImplicit(shape_class, num_points, "train").items)

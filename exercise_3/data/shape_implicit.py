@@ -43,8 +43,9 @@ class ShapeImplicit(torch.utils.data.Dataset):
              "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
         # get shape_id at index
+       
         item = self.items[index].split(' ')[0]
-        
+       
         # get the class index
         class_idx = int(self.items[index].split(' ')[1])
 
@@ -64,6 +65,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         # truncate sdf values
         sdf_clamped = torch.clamp(sdf, -0.1, 0.1)
 
+    
         return {
             "name": item,       # identifier of the shape
             "indices": index,   # index parameter

@@ -13,6 +13,8 @@ def main():
     parser.add_argument("--is_overfit", help="Specify the extent of the experiment ", required=False, default=False, type=bool)
     parser.add_argument("--num_points", help="Specify the number of points to sample for sdf values per shape", required=False, default=4096, type=int)
     parser.add_argument("--epochs", help="Specify the number of epochs to train the model", required=False, default=500, type=int)
+    parser.add_argument("--class_embedding_length", help="Specify the length of the class embedding", required=False, default=128, type=int)
+    parser.add_argument("--latent_code_length", help="Specify the length of the latent code", required=False, default=256, type=int)
                         
     args = parser.parse_args()
     shape_class = args.category
@@ -22,12 +24,12 @@ def main():
     num_points = args.num_points
     epochs = args.epochs
 
-
+  
     generalization_config = {
         'experiment_name': experiment_name,
         'experiment_type': experiment_type,
         'shape_class': shape_class,
-        'number_of_classes': 2,
+        'number_of_classes': 3,
         'device': 'cuda:0',  # run this on a gpu for a reasonable training time
         'is_overfit': is_overfit,
         'num_sample_points': num_points, # you can adjust this such that the model fits on your gpu
@@ -44,7 +46,6 @@ def main():
         'visualize_every_n': 5000,
         'num_encoding_functions': 4,
     }
-
     train_deepsdf.main(generalization_config)
 
 
