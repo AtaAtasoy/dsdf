@@ -140,7 +140,7 @@ def get_shell_mean_cross(x, k=10, nk=4, idx_all=None):
 
 class VNLinear(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(VNLinear, self).__init__()
+        super().__init__()
         self.map_to_feat = nn.Linear(in_channels, out_channels, bias=False)
     
     def forward(self, x):
@@ -153,7 +153,7 @@ class VNLinear(nn.Module):
 
 class VNLeakyReLU(nn.Module):
     def __init__(self, in_channels, share_nonlinearity=False, negative_slope=0.2):
-        super(VNLeakyReLU, self).__init__()
+        super().__init__()
         if share_nonlinearity == True:
             self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
         else:
@@ -174,7 +174,7 @@ class VNLeakyReLU(nn.Module):
 
 class VNLinearLeakyReLU(nn.Module):
     def __init__(self, in_channels, out_channels, dim=5, share_nonlinearity=False, use_batchnorm=True, negative_slope=0.2):
-        super(VNLinearLeakyReLU, self).__init__()
+        super().__init__()
         self.dim = dim
         self.share_nonlinearity = share_nonlinearity
         self.use_batchnorm = use_batchnorm
@@ -215,7 +215,7 @@ class VNLinearLeakyReLU(nn.Module):
 
 class VNBatchNorm(nn.Module):
     def __init__(self, num_features, dim):
-        super(VNBatchNorm, self).__init__()
+        super().__init__()
         self.dim = dim
         if dim == 3 or dim == 4:
             self.bn = nn.BatchNorm1d(num_features)
@@ -237,7 +237,7 @@ class VNBatchNorm(nn.Module):
 
 class VNMaxPool(nn.Module):
     def __init__(self, in_channels, share_nonlinearity=False):
-        super(VNMaxPool, self).__init__()
+        super().__init__()
         if share_nonlinearity:
             self.map_to_dir = nn.Linear(in_channels, 1, bias=False)
         else:
@@ -257,7 +257,7 @@ class VNMaxPool(nn.Module):
 
 class VNStdFeature(nn.Module):
     def __init__(self, in_channels, dim=4, normalize_frame=False, share_nonlinearity=False, use_batchnorm=True):
-        super(VNStdFeature, self).__init__()
+        super().__init__()
         self.dim = dim
         self.normalize_frame = normalize_frame
         self.share_nonlinearity = share_nonlinearity

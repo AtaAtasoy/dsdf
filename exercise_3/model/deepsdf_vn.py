@@ -16,14 +16,12 @@ class DeepSDFVNDecoder(nn.Module):
         self.encoder_output_dim = 256
         self.encoder = VNN_ResnetPointnet(c_dim=self.encoder_output_dim, hidden_dim=256, experiment_type=experiment_type, num_encoding_functions=num_encoding_functions)
         # TODO: Define model
-        '''
+        
         if experiment_type == 'pe':
             self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size +  3 + 3 * 2 * num_encoding_functions, 512))
         else: 
             self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size + 3, 512))
-        '''
-        # TODO: Test
-        self.lin0 = torch.nn.utils.weight_norm(nn.Linear(latent_size + self.encoder_output_dim + 3, 512))
+
         self.relu0 = nn.ReLU()
         self.drop0 = nn.Dropout(dropout_prob)
 
@@ -39,18 +37,16 @@ class DeepSDFVNDecoder(nn.Module):
         self.relu3 = nn.ReLU()
         self.drop3 = nn.Dropout(dropout_prob)
 
-        '''
+        
         if experiment_type == 'pe':
             self.lin4 = torch.nn.utils.weight_norm(nn.Linear(512, 512 - (latent_size + 3 + 3 * 2 * num_encoding_functions)))
         else:
             self.lin4 = torch.nn.utils.weight_norm(nn.Linear(512, 512 - (latent_size + 3)))
-        '''
         
-        self.lin4 =  torch.nn.utils.weight_norm(nn.Linear(512, 512))
         self.relu4 = nn.ReLU()
         self.drop4 = nn.Dropout(dropout_prob)
 
-        self.lin5 = torch.nn.utils.weight_norm(nn.Linear(512 + (latent_size + self.encoder_output_dim + 3), 512))
+        self.lin5 = torch.nn.utils.weight_norm(nn.Linear(512, 512))
         self.relu5 = nn.ReLU()
         self.drop5 = nn.Dropout(dropout_prob)
 
@@ -64,6 +60,9 @@ class DeepSDFVNDecoder(nn.Module):
 
         self.lin8 = torch.nn.utils.weight_norm(nn.Linear(512, 1))
 
+        self.fc_encoder = nn.Linear(self.encoder_output_dim * 3, latent_size)
+        self.fc_latent = nn.Linear(latent_size, latent_size)
+
     def forward(self, x_in, latent_code):
         """
         :param x_in: B x (latent_size + 3) tensor
@@ -73,12 +72,16 @@ class DeepSDFVNDecoder(nn.Module):
         x = torch.unsqueeze(x_in, 0)
         x = self.encoder(x)
         x = torch.squeeze(x, 0)
-        x = torch.squeeze(x, 1)
-        x = x.transpose(0, 1)
-        # Concat the encoded input and the latent_code in the latent space
-        x = torch.cat((x, latent_code), dim=1)
+        x = torch.flatten(x)
+        # Pass the encoded input through fc_encoder
+        x_enc = self.fc_encoder(x).unsqueeze(0)
+        # TODO: For now omitting passing the input from an initial layer before adding them up because latent_code is already in the latent space
+        latent_code = self.fc_latent(latent_code)
+        x = latent_code + x_enc
         x = torch.cat((x, x_in), dim=1)
         x_input = x # initial input of DeepSDF
+
+        # DeepSDF Decoder
         x = self.lin0(x) 
         x = self.relu0(x)
         x = self.drop0(x)

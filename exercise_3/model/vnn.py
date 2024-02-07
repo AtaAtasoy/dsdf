@@ -122,10 +122,10 @@ class VNN_ResnetPointnet(nn.Module):
         self.num_encoding_functions = num_encoding_functions
 
         input_size = 3
-        ''' 
+        
         if self.experiment_type == 'pe':
             input_size = 3 + 3 * 2 * self.num_encoding_functions
-        '''
+        
         self.conv_pos = VNLinearLeakyReLU(input_size, 128, negative_slope=0.0, share_nonlinearity=False, use_batchnorm=False)
         self.fc_pos = VNLinear(128, 2*hidden_dim)
         self.block_0 = VNResnetBlockFC(2*hidden_dim, hidden_dim)
@@ -176,7 +176,7 @@ class VNN_ResnetPointnet(nn.Module):
         net = self.block_4(net)
         
         # Recude to  B x F
-        net = self.pool(net, dim=2, keepdim=True)
+        net = self.pool(net, dim=-1)
         c = self.fc_c(self.actvn_c(net))
         
         if self.meta_output == 'invariant_latent':
