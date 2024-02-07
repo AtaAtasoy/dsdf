@@ -8,6 +8,7 @@ from exercise_3.model.deepsdf import DeepSDFDecoder
 from exercise_3.util.misc import evaluate_model_on_grid
 
 from exercise_3.data.positional_encoding import positional_encoding
+from exercise_3.data.positional_encoding import positional_encoding
 
 class InferenceHandlerDeepSDF:
 
