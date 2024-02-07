@@ -136,7 +136,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         :param shape_id: shape identifier for ShapeNet object
         :return: two torch float32 tensors, a Nx3 tensor containing point coordinates, and Nx1 tensor containing their sdf values
         """
-        npz = np.load(ShapeImplicit.dataset_path / shape_class / shape_id / "sdf.npz")
+        npz = np.load(f'{ShapeImplicit.dataset_path}/{shape_class}/{shape_id}/sdf.npz')
         pos_tensor = remove_nans(torch.from_numpy(npz["pos"]))
         neg_tensor = remove_nans(torch.from_numpy(npz["neg"]))
 

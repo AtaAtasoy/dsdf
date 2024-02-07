@@ -23,8 +23,10 @@ def evaluate_model_on_grid(model, class_embedding, latent_code, device, grid_res
         if experiment_type == "pe":
             points = positional_encoding(points, model.num_encoding_functions)
         points = torch.cat([points, class_embedding.expand(points.shape[0], -1)], 1)
+        
         with torch.no_grad():
             sdf = model(torch.cat([latent_code.unsqueeze(0).expand(points.shape[0], -1), points], 1))
+            
         sdf_values.append(sdf.detach().cpu())
     sdf_values = torch.cat(sdf_values, dim=0).numpy().reshape((grid_resolution, grid_resolution, grid_resolution))
     if 0 < sdf_values.min() or 0 > sdf_values.max():
