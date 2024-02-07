@@ -10,7 +10,7 @@ def main():
     parser.add_argument("--category", help="Specify a category from ['chair', 'picture_frame_painting', 'sofa', 'rug']", required=True)
     parser.add_argument("--experiment_name", help="Specify a category from ['chair', 'picture_frame_painting', 'sofa', 'rug']", required=True)
     parser.add_argument("--experiment_type", help="Specify a category from ['vanilla', 'pe', 'vn']", required=True)
-    parser.add_argument("--is_overfit", help="Specify the extent of the experiment ", required=True)
+    parser.add_argument("--is_overfit", help="Specify the extent of the experiment ", required=False, default=False)
                         
     args = parser.parse_args()
     shape_class = args.category
