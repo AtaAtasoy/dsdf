@@ -11,7 +11,7 @@ from exercise_3.data.positional_encoding import positional_encoding
 
 class InferenceHandlerDeepSDF:
 
-    def __init__(self, latent_code_length, experiment, device, class_idx, num_encoding_functions=6, experiment_type='vanilla', class_embedding_length=128):
+    def __init__(self, latent_code_length, experiment, device, class_idx, num_encoding_functions=2, experiment_type='single_class', class_embedding_length=128):
         """
         :param latent_code_length: latent code length for the trained DeepSDF model
         :param experiment: path to experiment folder for the trained model; should contain "model_best.ckpt" and "latent_best.ckpt"
@@ -47,7 +47,7 @@ class InferenceHandlerDeepSDF:
         :return: latent codes which were optimized during training
         """
         latent_codes = torch.nn.Embedding.from_pretrained(torch.load(self.experiment / "latent_best.ckpt", map_location='cpu')['weight'])
-        train_items = ShapeImplicit("multiclass", 4096, "train").items
+        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type="multi_class", num_encoding_functions=2).items
         train_items_class_ids = [int(item.split(' ')[1]) for item in train_items]
 
         latent_codes.to(self.device)
@@ -80,7 +80,11 @@ class InferenceHandlerDeepSDF:
         #class_e = torch.ones(1, self.class_embedding_length).normal_(mean=0, std=0.01).to(self.device)
         #class_e.requires_grad = True
         
-        class_embedding = self.get_class_codes()(torch.LongTensor([self.class_idx]).to(self.device))
+        if self.experiment_type == 'multi_class':
+            class_embedding = self.get_class_codes()(torch.LongTensor([self.class_idx]).to(self.device))
+        else:
+            class_embedding = None
+        #class_embedding = self.get_class_codes()(torch.LongTensor([self.class_idx]).to(self.device))
 
         # TODO: create optimizer on latent, use a learning rate of 0.005
         optimizer = torch.optim.Adam([latent], lr=0.005)
@@ -92,9 +96,8 @@ class InferenceHandlerDeepSDF:
             # TODO: sample a random batch from the observations, batch size = self.num_samples
             batch_indices = random.sample(range(points.shape[0]), self.num_samples)
 
-            batch_points = points[batch_indices, :]
-            if self.experiment_type == 'pe':   
-                batch_points = self.pe_encoder(batch_points)
+            batch_points = points[batch_indices, :] 
+            batch_points = self.pe_encoder(batch_points)
             batch_sdf = sdf[batch_indices, :]
 
             # move batch to device
@@ -103,11 +106,13 @@ class InferenceHandlerDeepSDF:
 
             # same latent code is used per point, therefore expand it to have same length as batch points
             latent_codes = latent.expand(self.num_samples, -1)
-            class_codes = class_embedding.expand(self.num_samples, -1)
+            if self.experiment_type == 'multi_class':
+                class_codes = class_embedding.expand(self.num_samples, -1)
+                 # TODO: forward pass with latent_codes and batch_points
+                predicted_sdf = model(torch.cat([latent_codes, batch_points, class_codes], dim=1))
+            else:
+                predicted_sdf = model(torch.cat([latent_codes, batch_points], dim=1))
             
-            # TODO: forward pass with latent_codes and batch_points
-            predicted_sdf = model(torch.cat([latent_codes, batch_points, class_codes], dim=1))
-
             # TODO: truncate predicted sdf between -0.1, 0.1
             predicted_sdf = torch.clamp(predicted_sdf, -0.1, 0.1)
 
@@ -130,7 +135,7 @@ class InferenceHandlerDeepSDF:
         print(latent.squeeze(0).shape)
         #print(class_e.shape)
         # visualize the reconstructed shape
-        vertices, faces = evaluate_model_on_grid(model, class_embedding, latent.squeeze(0), self.device, 64, None, experiment_type=self.experiment_type)
+        vertices, faces = evaluate_model_on_grid(model, class_embedding, latent.squeeze(0), self.device, 64, None)
         return vertices, faces
 
     def interpolate(self, latent_code_length, shape_0_id, shape_0_class_id, shape_1_id, shape_1_class_id, num_interpolation_steps):
@@ -150,7 +155,7 @@ class InferenceHandlerDeepSDF:
         train_class_codes = self.get_class_codes()
         
         # get indices of shape_ids latent codes
-        train_items = ShapeImplicit("multiclass", 4096, "train").items
+        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type=self.experiment_type, num_encoding_functions=2).items
         # B084ZBX1YH 1
         
         # Split the first and second items from the train_items list
@@ -172,7 +177,7 @@ class InferenceHandlerDeepSDF:
             interpolated_class_code = shape_code[0, latent_code_length:] + (shape_code[1, latent_code_length:] - shape_code[0, latent_code_length:]) * i / num_interpolation_steps
  
             # reconstruct the shape at the interpolated latent code
-            evaluate_model_on_grid(model, interpolated_class_code, interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
+            evaluate_model_on_grid(model, interpolated_class_code, interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj")
 
     
     def interpolate_w_fixed_class_code(self, latent_code_length, shape_0_id, shape_0_class_id, shape_1_id, num_interpolation_steps):
@@ -251,7 +256,26 @@ class InferenceHandlerDeepSDF:
             # reconstruct the shape at the interpolated latent code
             evaluate_model_on_grid(model, class_code[0], interpolated_latent_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj", experiment_type=self.experiment_type)
         
-
+    def interpolate_single_class(self, shape_0_id, shape_1_id, num_interpolation_steps):
+        model = self.get_model()
+        train_latent_codes, _ = self.get_latent_codes()
+                
+        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type="single_class", num_encoding_functions=2).items
+        train_items_ids = [item.split(' ')[0] for item in train_items]
+        
+        latent_code_indices = torch.LongTensor([train_items_ids.index(shape_0_id), train_items_ids.index(shape_1_id)]).to(self.device)
+        
+        print(f'Latent Code Indices: {latent_code_indices}')
+        # get latent codes for provided shape
+        latent_codes = train_latent_codes(latent_code_indices)    
+        
+        for i in range(0, num_interpolation_steps + 1):
+            # TODO: interpolate the latent codes: latent_codes[0, :] and latent_codes[1, :]
+            interpolated_code = latent_codes[0, :] + (latent_codes[1, :] - latent_codes[0, :]) * i / num_interpolation_steps
+            #interpolated_latent_code = shape_code[0, :latent_code_length] + (shape_code[1, :latent_code_length] - shape_code[0, :latent_code_length]) * i / num_interpolation_steps
+            
+            # reconstruct the shape at the interpolated latent code
+            evaluate_model_on_grid(model, None, interpolated_code, self.device, 64, self.experiment / "interpolation" / f"{i:05d}_000.obj")
 
     def infer_from_latent_code(self, latent_code_index):
         """

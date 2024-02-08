@@ -17,7 +17,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     dataset_path = '/workspace/project/data'
     project_path = '/workspace/project/dsdf/exercise_3'    
 
-    def __init__(self, shape_class, num_sample_points, split, experiment_type=None, num_encoding_functions=4):
+    def __init__(self, shape_class, num_sample_points, split, experiment_type='single_class', num_encoding_functions=4):
         """
         :param num_sample_points: number of points to sample for sdf values per shape
         :param split: one of 'train', 'val' or 'overfit' - for training, validation or overfitting split
@@ -29,8 +29,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
         self.num_sample_points = num_sample_points
         self.dataset_path = Path(f'{ShapeImplicit.dataset_path}/{shape_class}') # path to the sdf data for ShapeNetSem
         self.items = Path(f'{ShapeImplicit.project_path}/data/splits/{shape_class}/{split}.txt').read_text().splitlines()  # keep track of shape identifiers based on split
-        if self.experiment_type == 'pe':
-            self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
+        self.pe_encoder = lambda x: positional_encoding(x, num_encoding_functions=num_encoding_functions)
 
     def __getitem__(self, index):
         """
@@ -43,11 +42,11 @@ class ShapeImplicit(torch.utils.data.Dataset):
              "sdf", a num_sample_points x 1 pytorch float32 tensor containing sdf values for the sampled points
         """
         # get shape_id at index
-       
         item = self.items[index].split(' ')[0]
-       
+
         # get the class index
-        class_idx = int(self.items[index].split(' ')[1])
+        if self.experiment_type == 'multi_class':
+            class_idx = int(self.items[index].split(' ')[1])
 
         # get path to sdf data
         sdf_samples_path = f'{self.dataset_path}/{item}/sdf.npz'
@@ -57,22 +56,29 @@ class ShapeImplicit(torch.utils.data.Dataset):
         sdf_samples = self.get_sdf_samples(sdf_samples_path)
 
         points = sdf_samples[:, :3]
-        if self.experiment_type == 'pe':
-            points = self.pe_encoder(points)
+        points = self.pe_encoder(points)
 
         sdf = sdf_samples[:, 3:]
 
         # truncate sdf values
         sdf_clamped = torch.clamp(sdf, -0.1, 0.1)
 
-    
-        return {
-            "name": item,       # identifier of the shape
-            "indices": index,   # index parameter
-            "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
-            "sdf": sdf_clamped,  # sdf values, a tensor with shape num_sample_points x 1
-            "class_idx": class_idx # 0 for bed 1 for sofa
-        }
+        if self.experiment_type == 'multi_class':
+            return {
+                "name": item,       # identifier of the shape
+                "indices": index,   # index parameter
+                "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
+                "sdf": sdf_clamped,  # sdf values, a tensor with shape num_sample_points x 1
+                "class_idx": class_idx # 0 for bed 1 for sofa
+            }
+            
+        elif self.experiment_type == 'single_class':
+            return {
+                "name": item,       # identifier of the shape
+                "indices": index,   # index parameter
+                "points": points,  # points (pos + PE Encoding), a tensor with shape num_sample_points x (3 + 3 * 2 * num_encoding_functions)
+                "sdf": sdf_clamped  # sdf values, a tensor with shape num_sample_points x 1
+            }
 
     def __len__(self):
         """
@@ -82,15 +88,25 @@ class ShapeImplicit(torch.utils.data.Dataset):
         return len(self.items)
 
     @staticmethod
-    def move_batch_to_device(batch, device):
+    def move_batch_to_device_multiclass(batch, device):
         """
-        Utility method for moving all elements of the batch to a device
+        Utility method for moving all elements of the batch to a device for multi-class experiments
         :return: None, modifies batch inplace
         """
         batch['points'] = batch['points'].to(device)
         batch['sdf'] = batch['sdf'].to(device)
         batch['indices'] = batch['indices'].to(device)
         batch['class_idx'] = batch['class_idx'].to(device)
+        
+    @staticmethod
+    def move_batch_to_device_singleclass(batch, device):
+        """
+        Utility method for moving all elements of the batch to a device for single-class experiments
+        :return: None, modifies batch inplace
+        """
+        batch['points'] = batch['points'].to(device)
+        batch['sdf'] = batch['sdf'].to(device)
+        batch['indices'] = batch['indices'].to(device)
 
     def get_sdf_samples(self, path_to_sdf):
         """
@@ -152,7 +168,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     
     def get_class_of_items(self, indices):
         """
-        Utility method for getting the class of a latent code
+        Utility method for getting the class of a latent code given its index
         :param latent_code: latent code
         :param class_embedding: class embedding
         :return: class of the latent code
