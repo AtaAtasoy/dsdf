@@ -5,8 +5,12 @@ import shutil
 import os
 
 # Your existing code for creating dictionaries
-sofa_items = Path('/workspace/project/dsdf/exercise_3'+ '/data/splits/' + 'sofa' + '/train.txt').read_text().splitlines()[:300]
-bed_items = Path('/workspace/project/dsdf/exercise_3'+ '/data/splits/' + 'bed' + '/train.txt').read_text().splitlines()[:300]
+sofa_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'sofa' + '/train.txt').read_text().splitlines()
+bed_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'bed' + '/train.txt').read_text().splitlines()
+chair_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'chair' + '/train.txt').read_text().splitlines()
+
+dataset_copy_path = Path('/mnt/hdd/atasoy_dataset/ml3d')
+dataset_src_path = Path('/home/atasoy/project/data')
 
 # Create a {item: class} dictionary for the items
 sofa_dict = {}
@@ -17,11 +21,15 @@ bed_dict = {}
 for item in bed_items:
     bed_dict[item] = 1
     
+chair_dict = {}
+for item in chair_items:
+    chair_dict[item] = 2
+    
 # Have a combined dictionary
-combined_dict = {**sofa_dict, **bed_dict}
+combined_dict = {**sofa_dict, **bed_dict, **chair_dict}
 
 # Dump this dictionary to a JSON file
-output_file_path = '/workspace/project/dsdf/exercise_3/data/splits/multiclass/shuffled_items.json'
+output_file_path = '/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/shuffled_items.json'
 with open(output_file_path, 'w') as output_file:
     json.dump(combined_dict, output_file, indent=2)
 
@@ -43,17 +51,29 @@ print(f'Number of val: {num_val}')
 
 
 # Write the shape names to the respective files, create the text file if it does not exist. Also 
-with open(f'/workspace/project/dsdf/exercise_3/data/splits/multiclass/overfit.txt', 'w') as f:
+with open(f'/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/overfit.txt', 'w') as f:
     for item in all_items[:num_overfit]:
         f.write(f'{item} {combined_dict[item]}\n')
     
 
-with open(f'/workspace/project/dsdf/exercise_3/data/splits/multiclass/train.txt', 'w') as f:
+with open(f'/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/train.txt', 'w') as f:
    for item in all_items[num_overfit:num_overfit+num_train]:
         f.write(f'{item} {combined_dict[item]}\n')
 
-
-with open(f'/workspace/project/dsdf/exercise_3/data/splits/multiclass/val.txt', 'w') as f:
+with open(f'/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/val.txt', 'w') as f:
        for item in all_items[num_overfit+num_train:]:
         f.write(f'{item} {combined_dict[item]}\n')
 
+# Create multiclass folder under dataset path
+multiclass_path = dataset_copy_path / 'multiclass'
+multiclass_path.mkdir(exist_ok=True)
+
+# Copy the sofas to the multiclass folder
+for item in sofa_items:
+    shutil.copytree(dataset_src_path / 'sofa' / item, multiclass_path / item)
+    
+for item in bed_items:
+    shutil.copytree(dataset_src_path / 'bed' / item, multiclass_path / item)
+    
+for item in chair_items:
+    shutil.copytree(dataset_src_path / 'chair' / item, multiclass_path / item)
