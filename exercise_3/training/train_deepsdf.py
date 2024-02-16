@@ -8,7 +8,7 @@ from exercise_3.util.misc import evaluate_model_on_grid
 
 # TODO: Execute the mapping from the latent code index to the class id
 
-def train(model, latent_vectors, class_vectors, train_dataloader, device, config):
+def train(model, latent_vectors, class_vectors, train_dataloader, device, config, experiment_type):
 
     # Declare loss and move to device
     # TODO: declare loss as `loss_criterion`
@@ -17,7 +17,26 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
     # declare optimizer
     # Could try different optimizers for the model, latent, class vectors 
-    optimizer = torch.optim.Adam([
+    
+    if config['experiment_type'] == 'multi_class':
+        optimizer = torch.optim.Adam([
+            {
+                # TODO: optimizer params and learning rate for model (lr provided in config)
+                'lr': config['learning_rate_model'],
+                'params': model.parameters(),
+            },
+            {
+                # TODO: optimizer params and learning rate for latent code (lr provided in config)
+                'lr': config['learning_rate_code'],
+                'params': latent_vectors.parameters(),
+            },
+            {
+                'lr': config['learning_rate_class_code'],
+                'params': class_vectors.parameters(),
+            },
+        ])
+    elif config['experiment_type'] == 'single_class':
+        optimizer = torch.optim.Adam([
         {
             # TODO: optimizer params and learning rate for model (lr provided in config)
             'lr': config['learning_rate_model'],
@@ -27,10 +46,6 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
             # TODO: optimizer params and learning rate for latent code (lr provided in config)
             'lr': config['learning_rate_code'],
             'params': latent_vectors.parameters(),
-        },
-        {
-            'lr': config['learning_rate_class_code'],
-            'params': class_vectors.parameters(),
         },
     ])
 
@@ -50,7 +65,10 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
         for batch_idx, batch in enumerate(train_dataloader):
             # Move batch to device
-            ShapeImplicit.move_batch_to_device(batch, device)
+            if experiment_type == 'multi_class':
+                ShapeImplicit.move_batch_to_device_multiclass(batch, device)
+            elif experiment_type == 'single_class':
+                ShapeImplicit.move_batch_to_device_singleclass(batch, device)
             
             # TODO: Zero out previously accumulated gradients
             optimizer.zero_grad()
@@ -64,19 +82,20 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
             batch_latent_vectors = batch_latent_vectors.reshape((num_points_per_batch, config['latent_code_length']))
             
             # get class codes corresponding to batch shapes
-            batch_class_vectors = class_vectors(batch['class_idx']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
-            batch_class_vectors = batch_class_vectors.reshape((num_points_per_batch, config['class_embedding_length']))
+            if config['experiment_type'] == 'multi_class':
+                batch_class_vectors = class_vectors(batch['class_idx']).unsqueeze(1).expand(-1, batch['points'].shape[1], -1)
+                batch_class_vectors = batch_class_vectors.reshape((num_points_per_batch, config['class_embedding_length']))
 
             # reshape points and sdf for forward pass
-            if config['experiment_type'] == "pe":
-                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions'])).to(device)
-            else:
-                points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3)).to(device)
+            points = torch.tensor(batch['points']).reshape((num_points_per_batch, 3 + 3 * 2 * config['num_encoding_functions'])).to(device)
+
             sdf = torch.tensor(batch['sdf']).reshape((num_points_per_batch, 1)).to(device)
 
-
             # TODO: perform forward pass
-            predicted_sdf = model(torch.cat([batch_latent_vectors, points, batch_class_vectors], dim=1))
+            if config['experiment_type'] == 'multi_class':
+                predicted_sdf = model(torch.cat([batch_latent_vectors, points, batch_class_vectors], dim=1))
+            elif config['experiment_type'] == 'single_class':
+                predicted_sdf = model(torch.cat([batch_latent_vectors, points], dim=1))
             # TODO: truncate predicted sdf between -0.1 and 0.1
             predicted_sdf = torch.clamp(predicted_sdf, -0.1, 0.1)
 
@@ -85,10 +104,13 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
 
             # regularize latent codes
             latent_code_regularization = torch.mean(torch.norm(batch_latent_vectors, dim=1)) * config['lambda_code_regularization']
-            class_code_regularization = torch.mean(torch.norm(batch_class_vectors, dim=1)) * config['lambda_code_regularization']
+            if config['experiment_type'] == 'multi_class':
+                class_code_regularization = torch.mean(torch.norm(batch_class_vectors, dim=1)) * config['lambda_code_regularization']
             
-            if epoch > 100:
+            if epoch > 100 and config['experiment_type'] == 'multi_class':
                 loss = loss + latent_code_regularization + class_code_regularization
+            elif epoch > 100 and config['experiment_type'] == 'single_class':
+                loss = loss + latent_code_regularization
 
             # TODO: backward
             loss.backward()
@@ -108,7 +130,8 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
                 if train_loss < best_loss:
                     torch.save(model.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/model_best.ckpt')
                     torch.save(latent_vectors.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/latent_best.ckpt')
-                    torch.save(class_vectors.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/class_best.ckpt')
+                    if config['experiment_type'] == 'multi_class':
+                        torch.save(class_vectors.state_dict(), f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/class_best.ckpt')
                     best_loss = train_loss
 
                 train_loss_running = 0.
@@ -120,18 +143,26 @@ def train(model, latent_vectors, class_vectors, train_dataloader, device, config
                 model.eval()
                 indices = torch.LongTensor(range(min(5, latent_vectors.num_embeddings))).to(device)
                 
-                #TODO: get class indices corresponding for the first 5 shapes   
-                class_ids = []          
-                for index in indices:
-                    class_ids.append(train_dataloader.dataset[index].get('class_idx'))
+                #TODO: get class indices corresponding for the first 5 shapes
+                if config['experiment_type'] == 'multi_class':   
+                    class_ids = []          
+                    for index in indices:
+                        class_ids.append(train_dataloader.dataset[index].get('class_idx'))
                     
-                class_ids = torch.LongTensor(class_ids).to(device)                    
+                    class_ids = torch.LongTensor(class_ids).to(device)      
+                    class_vectors_for_vis = class_vectors(class_ids)     
+                             
                 latent_vectors_for_vis = latent_vectors(indices)
-                class_vectors_for_vis = class_vectors(class_ids)
                 
-                for latent_idx in range(latent_vectors_for_vis.shape[0]):
-                    # create mesh and save to disk
-                    evaluate_model_on_grid(model, class_vectors_for_vis[latent_idx, :], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj', config["experiment_type"])
+                if config['experiment_type'] == 'multi_class':
+                    for latent_idx in range(latent_vectors_for_vis.shape[0]):
+                        # create mesh and save to disk
+                        evaluate_model_on_grid(model, class_vectors_for_vis[latent_idx, :], latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj')
+                elif config['experiment_type'] == 'single_class':
+                    for latent_idx in range(latent_vectors_for_vis.shape[0]):
+                        # create mesh and save to disk
+                        evaluate_model_on_grid(model, None, latent_vectors_for_vis[latent_idx, :], device, 64, f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/meshes/{iteration:05d}_{latent_idx:03d}.obj')
+                
                 # set model back to train
                 model.train()
 
@@ -183,7 +214,7 @@ def main(config):
     # Instantiate latent vectors for each training shape
     latent_vectors = torch.nn.Embedding(len(train_dataset), config['latent_code_length'], max_norm=1.0)
     class_vectors = torch.nn.Embedding(config['number_of_classes'], config['class_embedding_length'], max_norm=1.0)
-    
+   
     # Load model if resuming from checkpoint
     if config['resume_ckpt'] is not None:
         model.load_state_dict(torch.load(config['resume_ckpt'] + "_model.ckpt", map_location='cpu'))
@@ -198,4 +229,4 @@ def main(config):
     Path(f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}').mkdir(exist_ok=True, parents=True)
 
     # Start training
-    train(model, latent_vectors, class_vectors, train_dataloader, device, config)
+    train(model, latent_vectors, class_vectors, train_dataloader, device, config, config['experiment_type'])

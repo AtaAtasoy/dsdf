@@ -5,6 +5,42 @@ import numpy as np
 import k3d
 from matplotlib import cm, colors
 import trimesh
+import ipywidgets
+
+
+def visualize_and_save_mesh(save_path, vertices, faces, flip_axes=False):
+    vertices = np.array(vertices)
+    plot = k3d.plot(name='mesh', grid_visible=False, grid=(-0.55, -0.55, -0.55, 0.55, 0.55, 0.55))
+    if flip_axes:
+        rot_matrix = np.array([
+            [-1.0000000, 0.0000000, 0.0000000],
+            [0.0000000, 0.0000000, 1.0000000],
+            [0.0000000, 1.0000000, 0.0000000]
+        ])
+        vertices = vertices @ rot_matrix
+    plt_mesh = k3d.mesh(vertices.astype(np.float32), faces.astype(np.uint32), color=0xd0d0d0)
+    plot += plt_mesh
+    plt_mesh.shader = '3d'
+    plot.get_snapshot()
+
+    with open(f'{save_path}.html','w') as fp:
+        fp.write(plot.get_snapshot())
+
+
+
+def visualize_and_save_pointcloud(save_path, point_cloud, point_size, colors=None, flip_axes=False, name='point_cloud'):
+    point_cloud = point_cloud.copy()
+    plot = k3d.plot(name=name, grid_visible=False, grid=(-0.55, -0.55, -0.55, 0.55, 0.55, 0.55))
+    if flip_axes:
+        point_cloud[:, 2] = point_cloud[:, 2] * -1
+        point_cloud[:, [0, 1, 2]] = point_cloud[:, [0, 2, 1]]
+        point_cloud[:, 1] = point_cloud[:, 1] * -1
+    plt_points = k3d.points(positions=point_cloud.astype(np.float32), point_size=point_size, colors=colors if colors is not None else [], color=0xd0d0d0)
+    plot += plt_points
+    plt_points.shader = '3d'
+    plot.get_snapshot()
+    with open(f'{save_path}.html','w') as fp:
+        fp.write(plot.get_snapshot())
 
 
 def visualize_mesh(vertices, faces, flip_axes=False):

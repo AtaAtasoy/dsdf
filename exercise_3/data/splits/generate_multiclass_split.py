@@ -40,7 +40,7 @@ random.shuffle(all_items)
 
 # Split the items into train and val and overfit
 num_shapes = len(all_items)
-num_overfit = 2
+num_overfit = 1
 num_train = int(0.9 * (num_shapes - num_overfit))
 num_val = num_shapes - num_overfit - num_train
 
@@ -48,7 +48,6 @@ print(f'Number of shapes: {num_shapes}')
 print(f'Number of overfit: {num_overfit}')
 print(f'Number of train: {num_train}')
 print(f'Number of val: {num_val}')
-
 
 # Write the shape names to the respective files, create the text file if it does not exist. Also 
 with open(f'/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/overfit.txt', 'w') as f:
