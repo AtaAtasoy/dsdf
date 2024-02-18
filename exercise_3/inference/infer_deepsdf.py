@@ -12,7 +12,7 @@ from exercise_3.data.positional_encoding import positional_encoding
 
 class InferenceHandlerDeepSDF:
 
-    def __init__(self, latent_code_length, experiment, device, class_idx, num_encoding_functions=2, experiment_type='single_class', class_embedding_length=128):
+    def __init__(self, latent_code_length, experiment, device, class_idx, num_encoding_functions=2, experiment_type='multi_class', class_embedding_length=128, experiment_class="multiclass"):
         """
         :param latent_code_length: latent code length for the trained DeepSDF model
         :param experiment: path to experiment folder for the trained model; should contain "model_best.ckpt" and "latent_best.ckpt"
@@ -21,6 +21,7 @@ class InferenceHandlerDeepSDF:
         :param experiment_type: type of experiment, 'vanilla', 'pe' or 'multiclass'
         :param class_embedding_length: length of class embedding
         :param class_idx: index of the class for which inference is performed 
+        :param experiment_class: class of the experiment
         """
         self.latent_code_length = latent_code_length
         self.experiment = Path(experiment)
@@ -32,6 +33,7 @@ class InferenceHandlerDeepSDF:
         self.experiment_type = experiment_type
         self.class_embedding_length = class_embedding_length
         self.class_idx = class_idx
+        self.experiment_class = experiment_class
 
     def get_model(self):
         """
@@ -48,7 +50,7 @@ class InferenceHandlerDeepSDF:
         :return: latent codes which were optimized during training
         """
         latent_codes = torch.nn.Embedding.from_pretrained(torch.load(self.experiment / "latent_best.ckpt", map_location='cpu')['weight'])
-        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type="multi_class", num_encoding_functions=2).items
+        train_items = ShapeImplicit(self.experiment_class, 4096, "train", self.experiment_type, num_encoding_functions=2).items
         train_items_class_ids = [int(item.split(' ')[1]) for item in train_items]
 
         latent_codes.to(self.device)
@@ -156,7 +158,7 @@ class InferenceHandlerDeepSDF:
         train_class_codes = self.get_class_codes()
         
         # get indices of shape_ids latent codes
-        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type=self.experiment_type, num_encoding_functions=2).items
+        train_items = ShapeImplicit(self.experiment_class, 4096, "train", experiment_type=self.experiment_type, num_encoding_functions=2).items
         # B084ZBX1YH 1
         
         # Split the first and second items from the train_items list
@@ -261,7 +263,7 @@ class InferenceHandlerDeepSDF:
         model = self.get_model()
         train_latent_codes, _ = self.get_latent_codes()
                 
-        train_items = ShapeImplicit("sofa_bed", 4096, "train", experiment_type="single_class", num_encoding_functions=2).items
+        train_items = ShapeImplicit(self.experiment_class, 4096, "train", experiment_type=self.experiment_class, num_encoding_functions=2).items
         train_items_ids = [item.split(' ')[0] for item in train_items]
         
         latent_code_indices = torch.LongTensor([train_items_ids.index(shape_0_id), train_items_ids.index(shape_1_id)]).to(self.device)

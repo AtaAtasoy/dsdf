@@ -216,9 +216,9 @@ def main(config):
     class_vectors = torch.nn.Embedding(config['number_of_classes'], config['class_embedding_length'], max_norm=1.0)
    
     # Load model if resuming from checkpoint
-    if config['resume_ckpt'] is not None:
-        model.load_state_dict(torch.load(config['resume_ckpt'] + "_model.ckpt", map_location='cpu'))
-        latent_vectors = torch.nn.Embedding.from_pretrained(torch.load(config['resume_ckpt'] + "_latent.ckpt", map_location='cpu'))
+    if config['resume_ckpt']:
+        model.load_state_dict(torch.load(f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/model_best.ckpt', map_location='cpu'))
+        latent_vectors.load_state_dict(torch.load(f'{ShapeImplicit.project_path}/runs/{config["experiment_name"]}/latent_best.ckpt', map_location='cpu'))
 
     # Move model to specified device
     model.to(device)

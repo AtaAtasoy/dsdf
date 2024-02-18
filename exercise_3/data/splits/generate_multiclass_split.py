@@ -7,9 +7,8 @@ import os
 # Your existing code for creating dictionaries
 sofa_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'sofa' + '/train.txt').read_text().splitlines()
 bed_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'bed' + '/train.txt').read_text().splitlines()
-chair_items = Path('/home/atasoy/project/dsdf/exercise_3'+ '/data/splits/' + 'chair' + '/train.txt').read_text().splitlines()
 
-dataset_copy_path = Path('/mnt/hdd/atasoy_dataset/ml3d')
+#dataset_copy_path = Path('/mnt/hdd/atasoy_dataset/ml3d')
 dataset_src_path = Path('/home/atasoy/project/data')
 
 # Create a {item: class} dictionary for the items
@@ -21,12 +20,8 @@ bed_dict = {}
 for item in bed_items:
     bed_dict[item] = 1
     
-chair_dict = {}
-for item in chair_items:
-    chair_dict[item] = 2
-    
 # Have a combined dictionary
-combined_dict = {**sofa_dict, **bed_dict, **chair_dict}
+combined_dict = {**sofa_dict, **bed_dict}
 
 # Dump this dictionary to a JSON file
 output_file_path = '/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/shuffled_items.json'
@@ -64,7 +59,7 @@ with open(f'/home/atasoy/project/dsdf/exercise_3/data/splits/multiclass/val.txt'
         f.write(f'{item} {combined_dict[item]}\n')
 
 # Create multiclass folder under dataset path
-multiclass_path = dataset_copy_path / 'multiclass'
+multiclass_path = dataset_src_path / 'multiclass'
 multiclass_path.mkdir(exist_ok=True)
 
 # Copy the sofas to the multiclass folder
@@ -73,6 +68,3 @@ for item in sofa_items:
     
 for item in bed_items:
     shutil.copytree(dataset_src_path / 'bed' / item, multiclass_path / item)
-    
-for item in chair_items:
-    shutil.copytree(dataset_src_path / 'chair' / item, multiclass_path / item)

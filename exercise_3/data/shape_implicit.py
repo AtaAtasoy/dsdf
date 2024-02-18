@@ -14,7 +14,7 @@ class ShapeImplicit(torch.utils.data.Dataset):
     Dataset for loading deep sdf training samples
     """
     
-    #dataset_path = '/workspace/project/data'
+    #dataset_path = '/home/atasoy/project/data'
     dataset_path = '/mnt/hdd/atasoy_dataset/ml3d'
     project_path = '/home/atasoy/project/dsdf/exercise_3'    
 
