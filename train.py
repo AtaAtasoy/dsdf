@@ -30,8 +30,8 @@ def main():
     number_of_classes = args.number_of_classes
     resume = args.resume
     
-    #experiment_name = f'{shape_class}_{experiment_type}_{num_points}points__{epochs}epochs__{latent_code_length}latent_code__{class_embedding_length}class_embedding_length__{num_encoding_functions}enc'
-    experiment_name = 'bed_single_class_4096points__1000epochs__256latent_code__128class_embedding_length__2enc'
+    experiment_name = f'{shape_class}_{experiment_type}_{num_points}points__{epochs}epochs__{latent_code_length}latent_code__{class_embedding_length}class_embedding_length__{num_encoding_functions}enc'
+    #experiment_name = 'bed_single_class_4096points__1000epochs__256latent_code__128class_embedding_length__2enc'
     
     generalization_config = {
         'experiment_name': experiment_name,
