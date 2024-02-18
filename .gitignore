@@ -2,4 +2,5 @@
 .ipynb_checkpoints/
 __pycache__
 data/bed/*
-exercise_3/runs/*/meshes
+exercise_3/runs
+exercise_3/experiment_visuals
