@@ -1,1 +1,1 @@
-# DeepSDF
+# DeepSDF++: Augmenting the Autodecoder Architecture
